@@ -16,6 +16,12 @@ export interface RenderInput {
   inspect: boolean;
   /** CSS font-family used for the inspect reference overlay. */
   referenceFontFamily: string;
+  /**
+   * Changes whenever something that shapes the letters changes. While it
+   * stays the same (e.g. only placement is animated), a renderer may reuse
+   * work from the previous frame. Leave undefined to always rebuild.
+   */
+  geometryKey?: string;
 }
 
 /**

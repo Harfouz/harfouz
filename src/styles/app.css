@@ -94,6 +94,64 @@ body {
 }
 .stage .artboard { flex: 1; }
 
+/* ── Transport (play / pause) ──────────────────────────── */
+.transport {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.transport__play {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.transport__play:hover { border-color: var(--accent); color: var(--accent); }
+.transport__play svg { width: 14px; height: 14px; fill: currentColor; }
+.transport__play .icon-pause { display: none; }
+.transport__play[aria-pressed='true'] .icon-play { display: none; }
+.transport__play[aria-pressed='true'] .icon-pause { display: inline; }
+.transport__bar { width: 64px; height: 2px; background: var(--line); }
+.transport__bar span { display: block; height: 100%; width: 0; background: var(--accent); }
+
+/* ── Animate toggle and its settings ───────────────────── */
+.control.control--range { grid-template-columns: 1fr auto auto; }
+.anim-toggle {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.anim-toggle:hover { color: var(--ink); border-color: var(--line); }
+.anim-toggle[aria-pressed='true'] { color: var(--sheet); background: var(--accent); }
+/* Moving because the whole word moves (seen from a letter). */
+.anim-toggle.is-inherited { color: var(--accent); border-color: var(--accent); }
+.anim-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 6px;
+  padding: 10px 0 2px 12px;
+  border-inline-start: 2px solid var(--accent);
+}
+.anim-panel .control__label { font-size: 11px; }
+.anim-glyph { color: var(--accent); }
+
 /* ── Letter picker ─────────────────────────────────────── */
 .letterbar { display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .letterbar__word {
@@ -175,7 +233,7 @@ body {
 .view[hidden] { display: none; }
 /* Absolutely positioned so the drawing never pushes the layout around;
    the viewBox keeps it centred and proportional inside this box. */
-.artboard svg { position: absolute; inset: 6% 4% 10%; width: 92%; height: 84%; }
+.view > svg { position: absolute; inset: 6% 4% 10%; width: 92%; height: 84%; }
 .three-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .three-canvas:active { cursor: grabbing; }
 

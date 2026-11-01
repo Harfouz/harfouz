@@ -31,7 +31,6 @@ export function buildComposition(
   font: LoadedFont,
   source: string,
   params: ShapeParams | ShapeResolver,
-  time = 0,
 ): Composition {
   const resolve: ShapeResolver = typeof params === 'function' ? params : () => params;
   const word = resolve(-1);
@@ -50,7 +49,7 @@ export function buildComposition(
   comp = applySlant(comp, (l) => resolve(l).slant);
   comp = applyNoise(comp, (l) => {
     const p = resolve(l);
-    return { amount: p.noise * perMille, scale: p.noiseScale, seed: p.seed, time };
+    return { amount: p.noise * perMille, scale: p.noiseScale, seed: p.seed, phase: p.noisePhase };
   });
   return comp;
 }

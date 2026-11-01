@@ -8,8 +8,11 @@ export interface NoiseOptions {
   /** Number of noise "bumps" per em. */
   scale: number;
   seed: number;
-  /** Position along the third noise axis (time, for animation). */
-  time?: number;
+  /**
+   * Slides the pattern around a circle in the noise field (degrees).
+   * A full turn comes back to the start, so animating it loops seamlessly.
+   */
+  phase?: number;
 }
 
 const fields = new Map<number, ReturnType<typeof createNoise3D>>();
@@ -35,13 +38,16 @@ export function applyNoise(comp: Composition, options: (letter: number) => Noise
   return {
     ...comp,
     glyphs: comp.glyphs.map((g) => {
-      const { amount, scale, seed, time = 0 } = options(g.letter);
+      const { amount, scale, seed, phase = 0 } = options(g.letter);
       if (amount <= 0) return g;
       const noise = field(seed);
       const freq = scale / em;
+      const a = (phase * Math.PI) / 180;
+      const ox = Math.cos(a) * 1.5;
+      const oy = Math.sin(a) * 1.5;
       const displace = (p: { x: number; y: number }) => ({
-        x: p.x + amount * noise(p.x * freq, p.y * freq, time),
-        y: p.y + amount * noise(p.x * freq + 31.7, p.y * freq + 17.3, time + 11.1),
+        x: p.x + amount * noise(p.x * freq + ox, p.y * freq + oy, 0),
+        y: p.y + amount * noise(p.x * freq + ox + 31.7, p.y * freq + oy + 17.3, 11.1),
       });
       return { ...g, commands: mapCommands(flattenCommands(g.commands, step), displace) };
     }),

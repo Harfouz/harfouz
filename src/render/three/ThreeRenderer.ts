@@ -78,6 +78,12 @@ export class ThreeRenderer implements Renderer {
   private camera = new PerspectiveCamera(32, 1, 0.01, 100);
   private controls = new OrbitControls(this.camera, this.renderer.domElement);
   private word = new Group();
+  /** Parent of the word, turned by the Spin setting. */
+  private turntable = new Group();
+  /** Extruded volumes from the previous frame, reused while their shape is unchanged. */
+  private volumes = new Map<number, { geometry: ExtrudeGeometry; pivotY: number }>();
+  private volumesKey = '';
+  private junctionCache: ReturnType<typeof findJunctions> = [];
   private materials = new MaterialLibrary();
   private ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: 0.18 }));
   private key = new DirectionalLight(0xffffff, 2.4);
@@ -113,7 +119,8 @@ export class ThreeRenderer implements Renderer {
 
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.receiveShadow = true;
-    this.scene.add(this.ground, this.word, this.selection);
+    this.turntable.add(this.word);
+    this.scene.add(this.ground, this.turntable, this.selection);
     this.selection.visible = false;
 
     this.controls.enableDamping = true;
@@ -156,7 +163,7 @@ export class ThreeRenderer implements Renderer {
     this.needsFraming = true;
   }
 
-  render({ composition: comp, word, letter, selected }: RenderInput) {
+  render({ composition: comp, word, letter, selected, geometryKey }: RenderInput) {
     const em = comp.unitsPerEm;
     const perMille = em / 1000;
     const rad = Math.PI / 180;
@@ -165,19 +172,16 @@ export class ThreeRenderer implements Renderer {
     const gradient = [new Color(resolveColor(word.color, ink)), new Color(resolveColor(word.color2, ink))];
     this.clearWord();
 
-    const letters = shapesByLetter(comp);
-    const middle = (letters.length - 1) / 2;
-
-    // 1. Build every letter's volume and its own placement (a rigid transform).
-    const built = new Map<number, { geometry: ExtrudeGeometry; order: number }>();
-    const frames = new Map<number, LetterFrame>();
-    const spans = letterSpans(comp);
-    const spanOf = new Map(spans.map((s) => [s.letter, s]));
-    letters.forEach(({ letter: index, shapes }, order) => {
-      const p = letter(index);
-      const span = spanOf.get(index) ?? { start: 0, end: 0 };
-      const pivot = new Vector3((span.start + span.end) / 2, (comp.ascender + comp.descender) / 2, 0);
-      if (shapes.length) {
+    // 1. Every letter's volume. Extruding is the slow part, so volumes are
+    //    kept between frames while nothing that shapes them has changed
+    //    (e.g. while only placement settings are animated).
+    const reuse = geometryKey !== undefined && geometryKey === this.volumesKey;
+    if (!reuse) {
+      for (const v of this.volumes.values()) v.geometry.dispose();
+      this.volumes.clear();
+      for (const { letter: index, shapes } of shapesByLetter(comp)) {
+        if (!shapes.length) continue;
+        const p = letter(index);
         const depth = Math.max(1, p.depth * perMille);
         const bevel = Math.min(p.bevel * perMille, depth / 2);
         const weight = p.weight * perMille;
@@ -195,9 +199,23 @@ export class ThreeRenderer implements Renderer {
         // Centre the thickness on z = 0 so letters of different depths line up.
         geometry.translate(0, 0, -depth / 2);
         geometry.computeBoundingBox();
-        pivot.y = geometry.boundingBox!.getCenter(new Vector3()).y;
-        built.set(index, { geometry, order });
+        this.volumes.set(index, { geometry, pivotY: geometry.boundingBox!.getCenter(new Vector3()).y });
       }
+      this.junctionCache = findJunctions(comp);
+      this.volumesKey = geometryKey ?? '';
+    }
+
+    // Each letter's own placement (a rigid transform).
+    const spans = letterSpans(comp);
+    const middle = (spans.length - 1) / 2;
+    const built = new Map<number, { geometry: BufferGeometry; order: number }>();
+    const frames = new Map<number, LetterFrame>();
+    spans.forEach((span, order) => {
+      const index = span.letter;
+      const p = letter(index);
+      const volume = this.volumes.get(index);
+      const pivot = new Vector3((span.start + span.end) / 2, volume?.pivotY ?? (comp.ascender + comp.descender) / 2, 0);
+      if (volume) built.set(index, { geometry: volume.geometry.clone(), order });
       // Stagger and twist are measured from the middle letter so the word stays centred;
       // push, lift, turn and tilt are this letter's own placement.
       const rank = order - middle;
@@ -213,7 +231,7 @@ export class ThreeRenderer implements Renderer {
     // 2. Move each letter; around each junction with a connected neighbour the
     //    placements blend, so joins bend instead of breaking.
     const softness = word.joinSoftness * perMille;
-    const junctions = word.joins === 'keep' ? findJunctions(comp) : [];
+    const junctions = word.joins === 'keep' ? this.junctionCache : [];
     for (const [index, { geometry, order }] of built) {
       const p = letter(index);
 
@@ -246,7 +264,8 @@ export class ThreeRenderer implements Renderer {
     // Centre the word on the origin, 1 em = 1 unit.
     this.word.scale.setScalar(1 / em);
     this.word.position.set(-comp.width / 2 / em, -(comp.ascender + comp.descender) / 2 / em, 0);
-    this.word.updateMatrixWorld(true);
+    this.turntable.rotation.y = word.spin * rad;
+    this.turntable.updateMatrixWorld(true);
 
     const box = new Box3().setFromObject(this.word);
     if (box.isEmpty()) return;
@@ -328,6 +347,7 @@ export class ThreeRenderer implements Renderer {
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();
     this.clearWord();
+    for (const v of this.volumes.values()) v.geometry.dispose();
     this.materials.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();

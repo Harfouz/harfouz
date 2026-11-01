@@ -13,6 +13,11 @@ export interface ControlBinding {
   isModified(key: string): boolean;
   /** Hidden when false (e.g. a word-only parameter while editing a letter). */
   isAvailable(def: ParamDef): boolean;
+  /**
+   * Optional: add extra UI to a row (e.g. the animate button). Returns a
+   * function called on every refresh.
+   */
+  decorate?(def: ParamDef, row: HTMLElement): () => void;
 }
 
 function formatValue(def: ParamDef, value: Value): string {
@@ -101,10 +106,12 @@ export function buildControls(container: HTMLElement, defs: readonly ParamDef[],
       row.appendChild(select);
     }
 
+    const refreshExtra = binding.decorate?.(def, row);
     const refresh = () => {
       row.hidden = !binding.isAvailable(def);
       row.classList.toggle('is-modified', binding.isModified(def.key));
       refreshInput();
+      refreshExtra?.();
     };
     label.addEventListener('dblclick', () => {
       binding.reset(def.key);

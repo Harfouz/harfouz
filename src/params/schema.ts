@@ -68,6 +68,10 @@ export const SHAPE_PARAMS = [
   },
   { kind: 'range', key: 'noise', label: 'Distortion', min: 0, max: 120, step: 1, default: 0, unit: '‰' },
   { kind: 'range', key: 'noiseScale', label: 'Distortion scale', min: 0.5, max: 12, step: 0.1, default: 3 },
+  {
+    kind: 'range', key: 'noisePhase', label: 'Distortion drift', min: 0, max: 360, step: 1, default: 0, unit: '°',
+    hint: 'Slides the distortion pattern around a circle. Animate it with a ramp for a flowing, looping motion.',
+  },
   { kind: 'range', key: 'seed', label: 'Seed', min: 1, max: 99, step: 1, default: 7 },
 ] as const satisfies readonly ParamDef[];
 
@@ -80,6 +84,7 @@ export interface ShapeParams {
   spacing: number;
   noise: number;
   noiseScale: number;
+  noisePhase: number;
   seed: number;
 }
 
@@ -99,6 +104,10 @@ export const SPACE_PARAMS = [
     hint: 'Turns each letter a little more than the previous one around its vertical axis.',
   },
   {
+    kind: 'range', key: 'spin', label: 'Spin', min: -180, max: 180, step: 1, default: 0, unit: '°', scope: 'word',
+    hint: 'Turns the whole word around its vertical axis.',
+  },
+  {
     kind: 'choice', key: 'joins', label: 'Joins', default: 'keep', scope: 'word',
     hint: 'Keep connected letters attached when they move, or let them separate.',
     options: [
@@ -112,20 +121,20 @@ export const SPACE_PARAMS = [
     hint: 'How long the stretch between two connected letters is. Small: letters stay rigid and the join bends sharply.',
   },
   {
-    kind: 'range', key: 'push', label: 'Push', min: -1500, max: 1500, step: 5, default: 0, unit: '‰', scope: 'letter',
-    hint: 'Moves this letter forward (positive) or back (negative).',
+    kind: 'range', key: 'push', label: 'Push', min: -1500, max: 1500, step: 5, default: 0, unit: '‰',
+    hint: 'Moves forward (positive) or back (negative). On the word, every letter; best used per letter or animated with a delay.',
   },
   {
-    kind: 'range', key: 'lift', label: 'Lift', min: -1000, max: 1000, step: 5, default: 0, unit: '‰', scope: 'letter',
-    hint: 'Moves this letter up or down.',
+    kind: 'range', key: 'lift', label: 'Lift', min: -1000, max: 1000, step: 5, default: 0, unit: '‰',
+    hint: 'Moves up or down. Animated on the word with a delay between letters, it makes a wave.',
   },
   {
-    kind: 'range', key: 'turn', label: 'Turn', min: -180, max: 180, step: 1, default: 0, unit: '°', scope: 'letter',
-    hint: 'Rotates this letter around its vertical axis.',
+    kind: 'range', key: 'turn', label: 'Turn', min: -180, max: 180, step: 1, default: 0, unit: '°',
+    hint: 'Rotates each letter around its own vertical axis.',
   },
   {
-    kind: 'range', key: 'tilt', label: 'Tilt', min: -90, max: 90, step: 1, default: 0, unit: '°', scope: 'letter',
-    hint: 'Leans this letter forward or back.',
+    kind: 'range', key: 'tilt', label: 'Tilt', min: -90, max: 90, step: 1, default: 0, unit: '°',
+    hint: 'Leans each letter forward or back.',
   },
 ] as const satisfies readonly ParamDef[];
 
@@ -134,6 +143,7 @@ export interface SpaceParams {
   bevel: number;
   stagger: number;
   twist: number;
+  spin: number;
   joins: 'keep' | 'free';
   joinSoftness: number;
   push: number;

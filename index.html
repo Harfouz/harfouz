@@ -26,6 +26,12 @@
           <div class="view" id="view-3d"></div>
           <div class="view" id="view-2d" hidden></div>
           <p class="status" id="status" role="status"></p>
+          <div class="transport">
+            <button type="button" class="transport__play" id="play" aria-label="Play" title="Play / pause (space)">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path class="icon-play" d="M4 2.5v11l9-5.5z" /><path class="icon-pause" d="M4 2.5h3v11H4zM9 2.5h3v11H9z" /></svg>
+            </button>
+            <div class="transport__bar" aria-hidden="true"><span id="progress"></span></div>
+          </div>
         </div>
         <nav class="letterbar" aria-label="Choose what to edit">
           <button type="button" class="letterbar__word" id="pick-word" aria-pressed="true">Whole word</button>
@@ -75,6 +81,19 @@
           </div>
           <div class="controls" id="space-controls"></div>
           <button type="button" class="button" id="recenter">Recenter camera</button>
+        </section>
+
+        <section class="panel__section">
+          <div class="panel__head">
+            <h2 class="panel__title"><span>05</span> Motion</h2>
+            <button type="button" class="link-button" id="stop-all">Remove all motion</button>
+          </div>
+          <label class="field">
+            <span class="field__label">Start from a preset</span>
+            <select id="motion-preset" class="select"></select>
+          </label>
+          <div class="controls" id="clock-controls"></div>
+          <p class="hint">Click <span class="anim-glyph">∿</span> next to any slider to make it move. On a selected letter, the motion is only for that letter.</p>
         </section>
 
         <section class="panel__section" data-mode="2d" hidden>
