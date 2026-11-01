@@ -1,7 +1,7 @@
 import { FONT_CATALOG, loadFont, type FontId } from './core/fonts';
 import { isMark } from './core/joining';
 import { buildComposition } from './modifiers';
-import { inScope, SHAPE_PARAMS, SPACE_PARAMS, type ParamDef, type Params } from './params/schema';
+import { inScope, LOOK_PARAMS, SHAPE_PARAMS, SPACE_PARAMS, type ParamDef, type Params } from './params/schema';
 import { ParamState } from './params/state';
 import { SvgRenderer } from './render/svg/SvgRenderer';
 import { ThreeRenderer } from './render/three/ThreeRenderer';
@@ -170,7 +170,8 @@ function bindParams(containerId: string, resetId: string, defs: readonly ParamDe
       update();
     },
     isModified: (key) => params.isModified(state.selected, key as keyof Params),
-    isAvailable: (def) => inScope(def, level()),
+    isAvailable: (def) =>
+      inScope(def, level()) && (!def.showIf || params.get(state.selected, def.showIf.key as keyof Params) === def.showIf.equals),
   });
   refreshers.push(refresh);
   $(resetId).addEventListener('click', () => {
@@ -212,6 +213,7 @@ fontSelect.addEventListener('change', () => {
 });
 
 bindParams('shape-controls', 'reset-shape', SHAPE_PARAMS);
+bindParams('look-controls', 'reset-look', LOOK_PARAMS);
 bindParams('space-controls', 'reset-space', SPACE_PARAMS);
 $('recenter').addEventListener('click', updateAndFrame);
 
@@ -228,8 +230,11 @@ for (const key of ['guides', 'inspect'] as const) {
   });
 }
 
-// The 3D material follows the theme's ink colour.
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', update);
+// 'ink' colours follow the theme.
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  refreshScope();
+  update();
+});
 
 refreshScope();
 setMode(state.mode);

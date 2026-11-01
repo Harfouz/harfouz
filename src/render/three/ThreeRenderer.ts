@@ -2,13 +2,15 @@ import {
   ACESFilmicToneMapping,
   Box3,
   Box3Helper,
+  BufferAttribute,
   Color,
   DirectionalLight,
+  EdgesGeometry,
   ExtrudeGeometry,
   Group,
   HemisphereLight,
+  LineSegments,
   Mesh,
-  MeshStandardMaterial,
   PCFSoftShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
@@ -21,13 +23,17 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
+  type BufferGeometry,
+  type Object3D,
   type Shape,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Composition } from '../../core/types';
+import { grainOf, inkOf, letterFill, resolveColor } from '../look';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
+import { MaterialLibrary } from './materials';
 
 /** Where the camera looks from by default: a little to the left and above. */
 const DEFAULT_VIEW = new Vector3(-0.38, 0.22, 1).normalize();
@@ -43,6 +49,22 @@ export function shapesByLetter(comp: Composition): { letter: number; shapes: Sha
 }
 
 /**
+ * Gradient along the word: colour each vertex by its horizontal position,
+ * from `start` at the right edge (where Arabic reading begins) to `end` at
+ * the left. `offsetX` brings the letter's local x back to line coordinates.
+ */
+function paintGradient(geometry: BufferGeometry, offsetX: number, width: number, start: Color, end: Color) {
+  const position = geometry.getAttribute('position');
+  const colors = new Float32Array(position.count * 3);
+  const c = new Color();
+  for (let i = 0; i < position.count; i++) {
+    const t = Math.min(1, Math.max(0, 1 - (position.getX(i) + offsetX) / Math.max(width, 1)));
+    c.lerpColors(start, end, t).toArray(colors, i * 3);
+  }
+  geometry.setAttribute('color', new BufferAttribute(colors, 3));
+}
+
+/**
  * Draws the composition as extruded volumes in a 3D scene.
  *
  * Units: the whole word is scaled so that 1 em = 1 world unit.
@@ -55,7 +77,7 @@ export class ThreeRenderer implements Renderer {
   private camera = new PerspectiveCamera(32, 1, 0.01, 100);
   private controls = new OrbitControls(this.camera, this.renderer.domElement);
   private word = new Group();
-  private material = new MeshStandardMaterial({ roughness: 0.48, metalness: 0 });
+  private materials = new MaterialLibrary();
   private ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: 0.18 }));
   private key = new DirectionalLight(0xffffff, 2.4);
   private container?: HTMLElement;
@@ -123,7 +145,7 @@ export class ThreeRenderer implements Renderer {
         -((e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       this.raycaster.setFromCamera(ndc, this.camera);
-      const hit = this.raycaster.intersectObjects(this.word.children, false)[0];
+      const hit = this.raycaster.intersectObjects(this.word.children, true)[0];
       this.onPick?.(hit ? (hit.object.userData.letter as number) : null);
     });
   }
@@ -138,7 +160,8 @@ export class ThreeRenderer implements Renderer {
     const perMille = em / 1000;
     const rad = Math.PI / 180;
 
-    this.material.color = new Color(getComputedStyle(this.container ?? document.body).color);
+    const ink = inkOf(this.container ?? document.body);
+    const gradient = [new Color(resolveColor(word.color, ink)), new Color(resolveColor(word.color2, ink))];
     this.clearWord();
 
     const letters = shapesByLetter(comp);
@@ -165,20 +188,40 @@ export class ThreeRenderer implements Renderer {
       // Pivot every letter around its own centre so it turns in place.
       geometry.translate(-center.x, -center.y, -center.z);
 
-      const mesh = new Mesh(geometry, this.material);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+      // Colour: a solid colour, or per-vertex colours blending along the word.
+      const fill = letterFill(word, p, order, ink);
+      if (fill === 'gradient') paintGradient(geometry, center.x, comp.width, gradient[0], gradient[1]);
+      const color = fill === 'gradient' ? null : fill;
+
+      // One group per letter: it carries the placement, and holds the volume
+      // (and its edges for the outline preset).
+      const group = new Group();
+      group.userData.letter = index;
+      const mesh = new Mesh(geometry, this.materials.get(p.material, color, grainOf(p)));
       mesh.userData.letter = index;
+      mesh.receiveShadow = true;
+      // Glass and outlines would cast a solid black shadow, which looks wrong.
+      mesh.castShadow = p.material !== 'glass' && p.material !== 'outline';
+      group.add(mesh);
+      if (p.material === 'outline') {
+        // Keep the mesh for picking, but only draw its edges.
+        mesh.visible = false;
+        const edges = new LineSegments(new EdgesGeometry(geometry, 20), this.materials.line(color));
+        if (color === null) paintGradient(edges.geometry, center.x, comp.width, gradient[0], gradient[1]);
+        edges.userData.letter = index;
+        group.add(edges);
+      }
+
       // Stagger and twist are measured from the middle letter so the word stays centred;
       // push, lift, turn and tilt are this letter's own placement.
       const rank = order - middle;
-      mesh.position.set(
+      group.position.set(
         center.x,
         center.y + p.lift * perMille,
         -rank * word.stagger * perMille + p.push * perMille,
       );
-      mesh.rotation.set(p.tilt * rad, (rank * word.twist + p.turn) * rad, 0);
-      this.word.add(mesh);
+      group.rotation.set(p.tilt * rad, (rank * word.twist + p.turn) * rad, 0);
+      this.word.add(group);
     });
 
     // Centre the word on the origin, 1 em = 1 unit.
@@ -252,7 +295,7 @@ export class ThreeRenderer implements Renderer {
 
   private clearWord() {
     for (const child of [...this.word.children]) {
-      (child as Mesh).geometry.dispose();
+      child.traverse((o: Object3D) => (o as Mesh).geometry?.dispose());
       this.word.remove(child);
     }
   }
@@ -266,6 +309,7 @@ export class ThreeRenderer implements Renderer {
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();
     this.clearWord();
+    this.materials.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

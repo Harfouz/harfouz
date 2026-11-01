@@ -1,4 +1,5 @@
 import type { ParamDef } from '../params/schema';
+import { inkOf } from '../render/look';
 
 type Value = number | string;
 
@@ -16,6 +17,7 @@ export interface ControlBinding {
 
 function formatValue(def: ParamDef, value: Value): string {
   if (def.kind === 'choice') return '';
+  if (def.kind === 'color') return value === 'ink' ? 'ink' : String(value);
   const n = Number(value);
   const digits = def.step < 1 ? 1 : 0;
   return `${n.toFixed(digits)}${def.unit ?? ''}`;
@@ -64,6 +66,24 @@ export function buildControls(container: HTMLElement, defs: readonly ParamDef[],
         // Fill the track up to the thumb (used by the CSS).
         const t = (Number(value) - def.min) / (def.max - def.min);
         input.style.setProperty('--fill', `${t * 100}%`);
+      };
+      row.append(output, input);
+    } else if (def.kind === 'color') {
+      const output = document.createElement('output');
+      output.className = 'control__value';
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.id = id;
+      input.className = 'swatch';
+      input.addEventListener('input', () => {
+        binding.set(def.key, input.value);
+        refresh();
+      });
+      refreshInput = () => {
+        const value = String(binding.get(def.key));
+        // 'ink' follows the theme; show the colour it currently is.
+        input.value = value === 'ink' ? inkOf(container) : value;
+        output.value = formatValue(def, value);
       };
       row.append(output, input);
     } else {

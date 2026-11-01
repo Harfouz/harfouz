@@ -1,9 +1,13 @@
 import type { Composition } from '../../core/types';
+import type { Params } from '../../params/schema';
+import { grainOf, inkOf, letterFill, resolveColor } from '../look';
 import type { Renderer, RenderInput } from '../Renderer';
+import { flatLook, lookFilter } from './looks';
 import { toSvgPathData } from './pathData';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const ERODE_FILTER_ID = 'harfouz-erode';
+const GRADIENT_ID = 'harfouz-gradient';
 
 function el<K extends keyof SVGElementTagNameMap>(
   tag: K,
@@ -46,7 +50,7 @@ export class SvgRenderer implements Renderer {
     });
   }
 
-  render({ composition: comp, letter, selected, guides, inspect, referenceFontFamily }: RenderInput) {
+  render({ composition: comp, word, letter, selected, guides, inspect, referenceFontFamily }: RenderInput) {
     const em = comp.unitsPerEm;
     const perMille = em / 1000;
     const weightOf = (index: number) => letter(index).weight * perMille;
@@ -65,15 +69,43 @@ export class SvgRenderer implements Renderer {
 
     if (guides) this.svg.appendChild(this.guides(b.minX - pad, b.maxX + pad, comp.ascender, comp.descender));
 
-    const ink = el('g', { class: 'ink', fill: 'currentColor' });
+    const inkColor = inkOf(this.svg);
+    if (word.fill === 'gradient') {
+      // From the right edge (start of the Arabic word) to the left edge.
+      const gradient = el('linearGradient', {
+        id: GRADIENT_ID,
+        gradientUnits: 'userSpaceOnUse',
+        x1: comp.width,
+        y1: 0,
+        x2: 0,
+        y2: 0,
+      });
+      gradient.append(
+        el('stop', { offset: 0, 'stop-color': resolveColor(word.color, inkColor) }),
+        el('stop', { offset: 1, 'stop-color': resolveColor(word.color2, inkColor) }),
+      );
+      defs.appendChild(gradient);
+    }
+
+    const ink = el('g', { class: 'ink' });
     const letters = new Map<number, SVGGElement>();
+    // Each letter: an outer group for colour and material look, an inner one
+    // for erosion (an element can only carry one filter).
+    const inner = new Map<number, SVGGElement>();
     for (const g of comp.glyphs) {
-      let group = letters.get(g.letter);
+      let group = inner.get(g.letter);
       if (!group) {
-        group = el('g', { 'data-letter': g.letter, class: 'letter' });
-        this.applyWeight(group, weightOf(g.letter), defs);
-        letters.set(g.letter, group);
-        ink.appendChild(group);
+        const p = letter(g.letter);
+        const fill = letterFill(word, p, letters.size, inkColor);
+        const paint = fill === 'gradient' ? `url(#${GRADIENT_ID})` : fill;
+        const outer = el('g', { 'data-letter': g.letter, class: 'letter' });
+        this.applyLook(outer, p.material, paint, grainOf(p), em, defs);
+        group = el('g');
+        this.applyWeight(outer, group, weightOf(g.letter), paint, defs);
+        outer.appendChild(group);
+        letters.set(g.letter, outer);
+        inner.set(g.letter, group);
+        ink.appendChild(outer);
       }
       group.appendChild(el('path', { d: toSvgPathData(g.commands) }));
     }
@@ -85,16 +117,38 @@ export class SvgRenderer implements Renderer {
     if (inspect) this.svg.appendChild(this.inspector(comp, referenceFontFamily));
   }
 
-  /** Positive weight: a stroke centred on the outline. Negative: erosion. */
-  private applyWeight(group: SVGGElement, weight: number, defs: SVGDefsElement) {
-    if (weight > 0) {
-      group.setAttribute('stroke', 'currentColor');
-      group.setAttribute('stroke-width', String(weight * 2));
+  /** Colour, see-through and material filter (relief, grain, shadow). */
+  private applyLook(group: SVGGElement, material: Params['material'], paint: string, grain: number, em: number, defs: SVGDefsElement) {
+    if (material === 'outline') {
+      group.setAttribute('fill', 'none');
+      group.setAttribute('stroke', paint);
+      group.setAttribute('stroke-width', String(em * 0.008));
       group.setAttribute('stroke-linejoin', 'round');
+      return;
+    }
+    group.setAttribute('fill', paint);
+    const { opacity } = flatLook(material);
+    if (opacity < 1) group.setAttribute('fill-opacity', String(opacity));
+    const id = `harfouz-look-${material}-${Math.round(grain * 100)}`;
+    if (!defs.querySelector(`#${id}`)) {
+      const filter = lookFilter(id, material, grain, em);
+      if (!filter) return;
+      defs.appendChild(filter);
+    }
+    group.setAttribute('filter', `url(#${id})`);
+  }
+
+  /** Positive weight: a stroke centred on the outline. Negative: erosion. */
+  private applyWeight(outer: SVGGElement, inner: SVGGElement, weight: number, paint: string, defs: SVGDefsElement) {
+    if (weight > 0) {
+      // Outline letters keep their thin line and get it thicker instead.
+      if (outer.getAttribute('fill') !== 'none') outer.setAttribute('stroke', paint);
+      outer.setAttribute('stroke-width', String(weight * 2));
+      outer.setAttribute('stroke-linejoin', 'round');
     } else if (weight < 0) {
       const id = `${ERODE_FILTER_ID}-${Math.round(-weight * 10)}`;
       if (!defs.querySelector(`#${id}`)) defs.appendChild(this.erodeFilter(id, -weight));
-      group.setAttribute('filter', `url(#${id})`);
+      inner.setAttribute('filter', `url(#${id})`);
     }
   }
 

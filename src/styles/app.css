@@ -291,6 +291,19 @@ body {
 .controls { display: grid; gap: 12px; }
 .control { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 8px; }
 .control--choice { grid-template-columns: 1fr; }
+.control--color { grid-template-columns: 1fr auto auto; align-items: center; }
+.swatch {
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+}
+.swatch::-webkit-color-swatch-wrapper { padding: 2px; }
+.swatch::-webkit-color-swatch { border: 0; border-radius: 1px; }
+.swatch::-moz-color-swatch { border: 0; }
 .control__label { font-size: 12px; color: var(--ink-soft); cursor: default; user-select: none; }
 .control__value { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
 .control__value { color: var(--muted); }

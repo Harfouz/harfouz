@@ -17,6 +17,8 @@ interface BaseParam {
   label: string;
   hint?: string;
   scope?: ParamScope;
+  /** Only shown when another parameter has this value (e.g. gradient colours). */
+  showIf?: { key: string; equals: string };
 }
 
 export interface RangeParam extends BaseParam {
@@ -34,7 +36,13 @@ export interface ChoiceParam extends BaseParam {
   default: string;
 }
 
-export type ParamDef = RangeParam | ChoiceParam;
+/** A colour as #rrggbb, or 'ink' to follow the theme's ink colour. */
+export interface ColorParam extends BaseParam {
+  kind: 'color';
+  default: string;
+}
+
+export type ParamDef = RangeParam | ChoiceParam | ColorParam;
 
 export const SHAPE_PARAMS = [
   {
@@ -119,10 +127,68 @@ export interface SpaceParams {
   tilt: number;
 }
 
-/** Every parameter, resolved for one letter (or for the whole word). */
-export type Params = ShapeParams & SpaceParams;
+export const MATERIALS = ['satin', 'clay', 'paper', 'metal', 'glass', 'outline'] as const;
+export type MaterialId = (typeof MATERIALS)[number];
 
-export const ALL_PARAMS: readonly ParamDef[] = [...SHAPE_PARAMS, ...SPACE_PARAMS];
+/** Colour and material. */
+export const LOOK_PARAMS = [
+  {
+    kind: 'choice', key: 'material', label: 'Material', default: 'satin',
+    hint: 'In 2D, materials become flat looks: outline, relief or paper grain.',
+    options: [
+      { value: 'satin', label: 'Satin relief' },
+      { value: 'clay', label: 'Clay' },
+      { value: 'paper', label: 'Paper grain' },
+      { value: 'metal', label: 'Metal' },
+      { value: 'glass', label: 'Glass' },
+      { value: 'outline', label: 'Outline only' },
+    ],
+  },
+  {
+    kind: 'choice', key: 'fill', label: 'Colour mode', default: 'solid', scope: 'word',
+    options: [
+      { value: 'solid', label: 'Solid' },
+      { value: 'gradient', label: 'Gradient along the word' },
+      { value: 'palette', label: 'One colour per letter' },
+    ],
+  },
+  {
+    kind: 'color', key: 'color', label: 'Colour', default: 'ink',
+    hint: 'On a letter, overrides the colour mode for that letter.',
+  },
+  {
+    kind: 'color', key: 'color2', label: 'Gradient end', default: '#c0412b', scope: 'word',
+    showIf: { key: 'fill', equals: 'gradient' },
+  },
+  {
+    kind: 'choice', key: 'palette', label: 'Palette', default: 'manuscript', scope: 'word',
+    showIf: { key: 'fill', equals: 'palette' },
+    options: [
+      { value: 'manuscript', label: 'Manuscript' },
+      { value: 'dusk', label: 'Dusk' },
+      { value: 'lagoon', label: 'Lagoon' },
+      { value: 'zellige', label: 'Zellige' },
+    ],
+  },
+  {
+    kind: 'range', key: 'grain', label: 'Grain', min: 0, max: 100, step: 1, default: 0, unit: '%',
+    hint: 'Surface texture. Paper always has some.',
+  },
+] as const satisfies readonly ParamDef[];
+
+export interface LookParams {
+  material: MaterialId;
+  fill: 'solid' | 'gradient' | 'palette';
+  color: string;
+  color2: string;
+  palette: string;
+  grain: number;
+}
+
+/** Every parameter, resolved for one letter (or for the whole word). */
+export type Params = ShapeParams & SpaceParams & LookParams;
+
+export const ALL_PARAMS: readonly ParamDef[] = [...SHAPE_PARAMS, ...SPACE_PARAMS, ...LOOK_PARAMS];
 
 export function defaultsOf<T>(defs: readonly ParamDef[]): T {
   return Object.fromEntries(defs.map((d) => [d.key, d.default])) as T;
