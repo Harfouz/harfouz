@@ -336,9 +336,53 @@ export class ThreeRenderer implements Renderer {
     }
   }
 
-  /** The canvas, for PNG export later. */
-  get canvas() {
-    return this.renderer.domElement;
+  /**
+   * Render the current scene into a new canvas of the given size, seen from
+   * the current camera. If the picture is narrower than the view, the camera
+   * steps back so the word still fits.
+   */
+  async snapshot(width: number, height: number, background: string | null): Promise<HTMLCanvasElement> {
+    const r = this.renderer;
+    const previous = { size: r.getSize(new Vector2()), ratio: r.getPixelRatio(), aspect: this.camera.aspect };
+    const position = this.camera.position.clone();
+    const aspect = width / height;
+    if (aspect < previous.aspect) {
+      const away = position.clone().sub(this.controls.target);
+      this.camera.position.copy(this.controls.target).addScaledVector(away, previous.aspect / aspect);
+    }
+    r.setPixelRatio(1);
+    r.setSize(width, height, false);
+    this.camera.aspect = aspect;
+    this.camera.updateProjectionMatrix();
+    if (background) r.setClearColor(new Color(background), 1);
+    r.render(this.scene, this.camera);
+
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    out.getContext('2d')!.drawImage(r.domElement, 0, 0, width, height);
+
+    // Back to the live view.
+    r.setClearColor(0x000000, 0);
+    r.setPixelRatio(previous.ratio);
+    r.setSize(previous.size.x, previous.size.y, false);
+    this.camera.aspect = previous.aspect;
+    this.camera.position.copy(position);
+    this.camera.updateProjectionMatrix();
+    return out;
+  }
+
+  /** The word as a binary glTF (.glb) model, with its materials. */
+  async glb(): Promise<ArrayBuffer> {
+    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+    // Export a copy without editor helpers, at a real-world-ish scale (1 em = 1 unit).
+    const copy = this.turntable.clone(true);
+    // Invisible picking meshes (outline preset) are not part of the artwork.
+    const hidden: Object3D[] = [];
+    copy.traverse((o) => !o.visible && hidden.push(o));
+    for (const o of hidden) o.removeFromParent();
+    const result = await new GLTFExporter().parseAsync(copy, { binary: true });
+    return result as ArrayBuffer;
   }
 
   destroy() {

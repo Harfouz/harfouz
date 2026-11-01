@@ -103,6 +103,58 @@
           <p class="hint">Click <span class="anim-glyph">∿</span> next to any slider to make it move. On a selected letter, the motion is only for that letter.</p>
         </section>
 
+        <section class="panel__section">
+          <h2 class="panel__title"><span>06</span> Export</h2>
+          <div class="segmented segmented--wide" role="radiogroup" aria-label="What to export">
+            <label><input type="radio" name="export-kind" value="image" checked /><span>Image</span></label>
+            <label><input type="radio" name="export-kind" value="animation" /><span>Animation</span></label>
+          </div>
+          <label class="field">
+            <span class="field__label">Format</span>
+            <select id="export-format" class="select"></select>
+          </label>
+          <p class="hint" id="export-note"></p>
+          <label class="field">
+            <span class="field__label">Size</span>
+            <select id="export-size" class="select"></select>
+          </label>
+          <div class="field">
+            <span class="field__label">Background</span>
+            <div class="inline">
+              <select id="export-background" class="select">
+                <option value="transparent">Transparent</option>
+                <option value="sheet">Same as the artboard</option>
+                <option value="custom">Custom colour</option>
+              </select>
+              <input type="color" id="export-color" class="swatch" value="#f8f4ec" hidden />
+            </div>
+          </div>
+          <div class="inline" data-export="animation" hidden>
+            <label class="field">
+              <span class="field__label">Frames per second</span>
+              <select id="export-fps" class="select">
+                <option value="24">24</option>
+                <option value="30" selected>30</option>
+                <option value="60">60</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field__label">Loops</span>
+              <select id="export-loops" class="select">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </label>
+          </div>
+          <button type="button" class="button button--primary" id="export-go">Export</button>
+          <div class="export-progress" id="export-progress" hidden>
+            <div class="export-progress__bar"><span id="export-bar"></span></div>
+            <button type="button" class="link-button" id="export-cancel">Cancel</button>
+          </div>
+          <p class="hint" id="export-status" role="status"></p>
+        </section>
+
         <section class="panel__section" data-mode="2d" hidden>
           <h2 class="panel__title"><span>00</span> 2D view</h2>
           <label class="toggle"><input type="checkbox" id="guides" checked /> <span>Guides</span></label>

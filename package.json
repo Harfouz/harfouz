@@ -11,7 +11,10 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "fflate": "^0.8.3",
+    "gifenc": "^1.0.3",
     "harfbuzzjs": "^1.6.4",
+    "mediabunny": "^1.65.0",
     "opentype.js": "^2.0.0",
     "three": "^0.187.0"
   },

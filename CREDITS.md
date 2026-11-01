@@ -20,3 +20,14 @@ All typefaces are distributed under the [SIL Open Font License 1.1](https://open
 | El Messiri | Display | `public/fonts/el-messiri/` | Copyright 2015 The El Messiri Project Authors (https://github.com/Gue3bara/El-Messiri) |
 | Lalezar | Display | `public/fonts/lalezar/` | Copyright 2015 The Lalezar Project Authors (https://github.com/BornaIz/Lalezar) |
 | Rakkas | Display | `public/fonts/rakkas/` | Copyright 2016 Zeynep Akay |
+
+## Libraries
+
+| Library | Used for | Licence |
+|---|---|---|
+| [harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) | Arabic shaping (joined forms, ligatures, diacritic placement) | MIT |
+| [opentype.js](https://github.com/opentypejs/opentype.js) | Reading glyph outlines | MIT |
+| [three.js](https://threejs.org) | 3D rendering, GLB export | MIT |
+| [Mediabunny](https://mediabunny.dev) | MP4 and WebM video export | MPL-2.0 (used unmodified, as a separate dependency) |
+| [gifenc](https://github.com/mattdesl/gifenc) | Animated GIF export | MIT |
+| [fflate](https://github.com/101arrowz/fflate) | ZIP of PNG frames | MIT |

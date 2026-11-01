@@ -203,6 +203,44 @@ export class SvgRenderer implements Renderer {
     return group;
   }
 
+  /**
+   * The current drawing as a standalone SVG document, without guides or
+   * selection (call render() with those off first).
+   */
+  svgString(background: string | null, width?: number, height?: number): string {
+    const copy = this.svg.cloneNode(true) as SVGSVGElement;
+    copy.setAttribute('xmlns', SVG_NS);
+    copy.removeAttribute('role');
+    for (const helper of copy.querySelectorAll('.guides, .selection, .inspect')) helper.remove();
+    if (width && height) {
+      copy.setAttribute('width', String(width));
+      copy.setAttribute('height', String(height));
+    }
+    if (background) {
+      const [x, y, w, h] = (copy.getAttribute('viewBox') ?? '0 0 0 0').split(' ').map(Number);
+      const rect = el('rect', { x, y, width: w, height: h, fill: background });
+      copy.insertBefore(rect, copy.firstChild);
+    }
+    return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(copy)}`;
+  }
+
+  /** Rasterise the current drawing into a canvas of the given size (centred, contained). */
+  async snapshot(width: number, height: number, background: string | null): Promise<HTMLCanvasElement> {
+    const image = new Image();
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(this.svgString(null, width, height))}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    if (background) {
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.drawImage(image, 0, 0, width, height);
+    return canvas;
+  }
+
   destroy() {
     this.svg.remove();
   }

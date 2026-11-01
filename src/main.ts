@@ -25,6 +25,8 @@ import { SvgRenderer } from './render/svg/SvgRenderer';
 import { ThreeRenderer } from './render/three/ThreeRenderer';
 import { buildControls } from './ui/controls';
 import { buildKeyboard, mapPhysicalKeys } from './ui/keyboard';
+import { canExportVideo, download, runExport, type FrameSource } from './export/exporter';
+import { finalSize, FORMATS, SIZES, type ExportKind } from './export/formats';
 
 /** Words that exercise joins, ligatures and diacritics. */
 const SAMPLES = ['كَلِمَة', 'السَّلَامُ عَلَيْكُمْ', 'مُدَرِّسَة', 'لِلْأَطْفَالِ', 'مستشفى', 'محمد', 'لا', 'جـمـيـل'];
@@ -73,7 +75,8 @@ const SHAPE_KEYS = SHAPE_PARAMS.map((d) => d.key);
 const VOLUME_KEYS = ['depth', 'bevel'] as const;
 let cached: { key: string; composition: Composition } | null = null;
 
-function update() {
+/** Draw the current frame. For exports, editor helpers (guides, selection) are left out. */
+function update(forExport = false) {
   if (!font) return;
   try {
     const letters = lettersOf(state.text);
@@ -94,9 +97,9 @@ function update() {
       composition,
       word,
       letter: resolve,
-      selected: state.selected,
-      guides: state.guides,
-      inspect: state.inspect,
+      selected: forExport ? null : state.selected,
+      guides: forExport ? false : state.guides,
+      inspect: forExport ? false : state.inspect,
       referenceFontFamily: cssFamily(state.fontId),
       geometryKey,
     });
@@ -128,6 +131,7 @@ function updateAndFrame() {
 
 function setMode(mode: Mode) {
   state.mode = mode;
+  refreshExportFormats();
   $('view-3d').hidden = mode !== '3d';
   $('view-2d').hidden = mode !== '2d';
   for (const section of document.querySelectorAll<HTMLElement>('[data-mode]')) {
@@ -417,6 +421,151 @@ $('stop-all').addEventListener('click', () => {
   refreshScope();
   update();
 });
+
+// ── Export ───────────────────────────────────────────────
+
+const exportSource: FrameSource = {
+  async frame(t, width, height, background) {
+    clock.t = t;
+    update(true);
+    return renderers[state.mode].snapshot(width, height, background);
+  },
+  svg(background) {
+    update(true);
+    return renderers['2d'].svgString(background);
+  },
+  glb() {
+    update(true);
+    return renderers['3d'].glb();
+  },
+};
+
+const exportFormat = $<HTMLSelectElement>('export-format');
+const exportSize = $<HTMLSelectElement>('export-size');
+const exportBackground = $<HTMLSelectElement>('export-background');
+const exportColor = $<HTMLInputElement>('export-color');
+const exportStatus = $('export-status');
+let exportKind: ExportKind = 'image';
+/** Video formats this browser can't encode. */
+const unsupported = new Set<string>();
+
+for (const size of SIZES) exportSize.add(new Option(size.label, size.id));
+
+function currentFormat() {
+  return FORMATS.find((f) => f.id === exportFormat.value) ?? FORMATS[0];
+}
+
+/** Formats offered for the current kind (image / animation) and view (2D / 3D). */
+function refreshExportFormats() {
+  const previous = exportFormat.value;
+  exportFormat.replaceChildren();
+  for (const f of FORMATS.filter((x) => x.kind === exportKind && x.modes.includes(state.mode))) {
+    const option = new Option(unsupported.has(f.id) ? `${f.label} (not supported by this browser)` : f.label, f.id);
+    option.disabled = unsupported.has(f.id);
+    exportFormat.add(option);
+  }
+  if ([...exportFormat.options].some((o) => o.value === previous && !o.disabled)) exportFormat.value = previous;
+  else exportFormat.value = [...exportFormat.options].find((o) => !o.disabled)?.value ?? '';
+  refreshExportOptions();
+}
+
+function refreshExportOptions() {
+  const format = currentFormat();
+  exportStatus.textContent = '';
+  $('export-note').textContent = format.note;
+  const transparent = exportBackground.querySelector<HTMLOptionElement>('option[value="transparent"]')!;
+  transparent.disabled = !format.alpha;
+  if (!format.alpha && exportBackground.value === 'transparent') exportBackground.value = 'sheet';
+  exportColor.hidden = exportBackground.value !== 'custom';
+  // A 3D model has no picture size or background.
+  const isModel = format.id === 'glb';
+  exportSize.closest('.field')!.toggleAttribute('hidden', isModel);
+  exportBackground.closest('.field')!.toggleAttribute('hidden', isModel);
+  for (const el of document.querySelectorAll<HTMLElement>('[data-export="animation"]')) el.hidden = exportKind !== 'animation';
+}
+
+for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="export-kind"]')) {
+  radio.addEventListener('change', () => {
+    if (!radio.checked) return;
+    exportKind = radio.value as ExportKind;
+    refreshExportFormats();
+  });
+}
+exportFormat.addEventListener('change', refreshExportOptions);
+exportBackground.addEventListener('change', refreshExportOptions);
+
+// Find out once which video formats the browser can encode.
+Promise.all(
+  ['mp4', 'webm'].map(async (id) => {
+    if (!(await canExportVideo(id))) unsupported.add(id);
+  }),
+).then(() => refreshExportFormats());
+
+function exportBackgroundColor(): string | null {
+  switch (exportBackground.value) {
+    case 'transparent':
+      return null;
+    case 'custom':
+      return exportColor.value;
+    default:
+      return getComputedStyle($('artboard')).backgroundColor;
+  }
+}
+
+let exportAbort: AbortController | null = null;
+
+$('export-go').addEventListener('click', async () => {
+  const format = currentFormat();
+  const size = SIZES.find((s) => s.id === exportSize.value) ?? SIZES[0];
+  const artboard = $('artboard');
+  const [width, height] = finalSize(
+    format,
+    size.width ?? artboard.clientWidth * 2,
+    size.height ?? artboard.clientHeight * 2,
+  );
+
+  const wasPlaying = clock.playing;
+  const t = clock.t;
+  setPlaying(false);
+  exportAbort = new AbortController();
+  const button = $<HTMLButtonElement>('export-go');
+  button.disabled = true;
+  $('export-progress').hidden = format.kind !== 'animation';
+  $('export-bar').style.width = '0';
+  exportStatus.textContent = format.kind === 'animation' ? 'Rendering frames…' : 'Exporting…';
+  try {
+    const blob = await runExport(exportSource, {
+      format,
+      width,
+      height,
+      background: exportBackgroundColor(),
+      t,
+      fps: Number($<HTMLSelectElement>('export-fps').value),
+      loops: Number($<HTMLSelectElement>('export-loops').value),
+      loopSeconds: clock.loop,
+      onProgress: (done) => ($('export-bar').style.width = `${done * 100}%`),
+      signal: exportAbort.signal,
+    });
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    download(blob, `harfouz-${state.fontId}-${stamp}.${format.extension}`);
+    const kb = blob.size / 1024;
+    const weight = kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`;
+    exportStatus.textContent =
+      format.id === 'glb' ? `Done: ${format.label}, ${weight}.` : `Done: ${format.label}, ${width} × ${height}, ${weight}.`;
+  } catch (err) {
+    exportStatus.textContent =
+      (err as Error).name === 'AbortError' ? 'Export cancelled.' : `Export failed: ${(err as Error).message}`;
+    console.error(err);
+  } finally {
+    button.disabled = false;
+    $('export-progress').hidden = true;
+    exportAbort = null;
+    clock.t = t;
+    update();
+    if (wasPlaying) setPlaying(true);
+  }
+});
+$('export-cancel').addEventListener('click', () => exportAbort?.abort());
 
 // ── Wire the controls ────────────────────────────────────
 
