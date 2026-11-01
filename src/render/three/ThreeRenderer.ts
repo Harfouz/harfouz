@@ -33,6 +33,7 @@ import type { Composition } from '../../core/types';
 import { grainOf, inkOf, letterFill, resolveColor } from '../look';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
+import { deformGeometry, findJunctions, letterSpans, type LetterFrame } from './deform';
 import { MaterialLibrary } from './materials';
 
 /** Where the camera looks from by default: a little to the left and above. */
@@ -166,35 +167,64 @@ export class ThreeRenderer implements Renderer {
 
     const letters = shapesByLetter(comp);
     const middle = (letters.length - 1) / 2;
-    letters.forEach(({ letter: index, shapes }, order) => {
-      if (!shapes.length) return;
-      const p = letter(index);
-      const depth = Math.max(1, p.depth * perMille);
-      const bevel = Math.min(p.bevel * perMille, depth / 2);
-      const weight = p.weight * perMille;
-      const geometry = new ExtrudeGeometry(shapes, {
-        depth,
-        curveSegments: 10,
-        bevelEnabled: bevel > 0 || weight !== 0,
-        bevelThickness: bevel,
-        bevelSize: bevel,
-        // Shrink the cap by the bevel so the silhouette keeps its drawn size,
-        // then grow or shrink it by the weight.
-        bevelOffset: weight - bevel,
-        bevelSegments: bevel > 0 ? 4 : 1,
-      });
-      geometry.computeBoundingBox();
-      const center = geometry.boundingBox!.getCenter(new Vector3());
-      // Pivot every letter around its own centre so it turns in place.
-      geometry.translate(-center.x, -center.y, -center.z);
 
-      // Colour: a solid colour, or per-vertex colours blending along the word.
+    // 1. Build every letter's volume and its own placement (a rigid transform).
+    const built = new Map<number, { geometry: ExtrudeGeometry; order: number }>();
+    const frames = new Map<number, LetterFrame>();
+    const spans = letterSpans(comp);
+    const spanOf = new Map(spans.map((s) => [s.letter, s]));
+    letters.forEach(({ letter: index, shapes }, order) => {
+      const p = letter(index);
+      const span = spanOf.get(index) ?? { start: 0, end: 0 };
+      const pivot = new Vector3((span.start + span.end) / 2, (comp.ascender + comp.descender) / 2, 0);
+      if (shapes.length) {
+        const depth = Math.max(1, p.depth * perMille);
+        const bevel = Math.min(p.bevel * perMille, depth / 2);
+        const weight = p.weight * perMille;
+        const geometry = new ExtrudeGeometry(shapes, {
+          depth,
+          curveSegments: 10,
+          bevelEnabled: bevel > 0 || weight !== 0,
+          bevelThickness: bevel,
+          bevelSize: bevel,
+          // Shrink the cap by the bevel so the silhouette keeps its drawn size,
+          // then grow or shrink it by the weight.
+          bevelOffset: weight - bevel,
+          bevelSegments: bevel > 0 ? 4 : 1,
+        });
+        // Centre the thickness on z = 0 so letters of different depths line up.
+        geometry.translate(0, 0, -depth / 2);
+        geometry.computeBoundingBox();
+        pivot.y = geometry.boundingBox!.getCenter(new Vector3()).y;
+        built.set(index, { geometry, order });
+      }
+      // Stagger and twist are measured from the middle letter so the word stays centred;
+      // push, lift, turn and tilt are this letter's own placement.
+      const rank = order - middle;
+      frames.set(index, {
+        letter: index,
+        pivot,
+        offset: new Vector3(0, p.lift * perMille, -rank * word.stagger * perMille + p.push * perMille),
+        turn: (rank * word.twist + p.turn) * rad,
+        tilt: p.tilt * rad,
+      });
+    });
+
+    // 2. Move each letter; around each junction with a connected neighbour the
+    //    placements blend, so joins bend instead of breaking.
+    const softness = word.joinSoftness * perMille;
+    const junctions = word.joins === 'keep' ? findJunctions(comp) : [];
+    for (const [index, { geometry, order }] of built) {
+      const p = letter(index);
+
+      // Colour first: the gradient follows the letter's place on the line.
       const fill = letterFill(word, p, order, ink);
-      if (fill === 'gradient') paintGradient(geometry, center.x, comp.width, gradient[0], gradient[1]);
+      if (fill === 'gradient') paintGradient(geometry, 0, comp.width, gradient[0], gradient[1]);
       const color = fill === 'gradient' ? null : fill;
 
-      // One group per letter: it carries the placement, and holds the volume
-      // (and its edges for the outline preset).
+      deformGeometry(geometry, index, frames, junctions, softness);
+
+      // One group per letter, holding the volume (and its edges for the outline preset).
       const group = new Group();
       group.userData.letter = index;
       const mesh = new Mesh(geometry, this.materials.get(p.material, color, grainOf(p)));
@@ -207,22 +237,11 @@ export class ThreeRenderer implements Renderer {
         // Keep the mesh for picking, but only draw its edges.
         mesh.visible = false;
         const edges = new LineSegments(new EdgesGeometry(geometry, 20), this.materials.line(color));
-        if (color === null) paintGradient(edges.geometry, center.x, comp.width, gradient[0], gradient[1]);
         edges.userData.letter = index;
         group.add(edges);
       }
-
-      // Stagger and twist are measured from the middle letter so the word stays centred;
-      // push, lift, turn and tilt are this letter's own placement.
-      const rank = order - middle;
-      group.position.set(
-        center.x,
-        center.y + p.lift * perMille,
-        -rank * word.stagger * perMille + p.push * perMille,
-      );
-      group.rotation.set(p.tilt * rad, (rank * word.twist + p.turn) * rad, 0);
       this.word.add(group);
-    });
+    }
 
     // Centre the word on the origin, 1 em = 1 unit.
     this.word.scale.setScalar(1 / em);

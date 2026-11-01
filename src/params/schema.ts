@@ -99,6 +99,19 @@ export const SPACE_PARAMS = [
     hint: 'Turns each letter a little more than the previous one around its vertical axis.',
   },
   {
+    kind: 'choice', key: 'joins', label: 'Joins', default: 'keep', scope: 'word',
+    hint: 'Keep connected letters attached when they move, or let them separate.',
+    options: [
+      { value: 'keep', label: 'Keep letters connected' },
+      { value: 'free', label: 'Let letters separate' },
+    ],
+  },
+  {
+    kind: 'range', key: 'joinSoftness', label: 'Join softness', min: 20, max: 900, step: 5, default: 260, unit: '‰',
+    scope: 'word', showIf: { key: 'joins', equals: 'keep' },
+    hint: 'How long the stretch between two connected letters is. Small: letters stay rigid and the join bends sharply.',
+  },
+  {
     kind: 'range', key: 'push', label: 'Push', min: -1500, max: 1500, step: 5, default: 0, unit: '‰', scope: 'letter',
     hint: 'Moves this letter forward (positive) or back (negative).',
   },
@@ -121,6 +134,8 @@ export interface SpaceParams {
   bevel: number;
   stagger: number;
   twist: number;
+  joins: 'keep' | 'free';
+  joinSoftness: number;
   push: number;
   lift: number;
   turn: number;
