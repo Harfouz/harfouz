@@ -1,6 +1,8 @@
 import { FONT_CATALOG, loadFont, type FontId } from './core/fonts';
-import { shapeLine } from './core/shaping';
+import { buildComposition } from './modifiers';
+import { defaultsOf, SHAPE_PARAMS, type ShapeParams } from './params/schema';
 import { SvgRenderer } from './render/svg/SvgRenderer';
+import { buildControls } from './ui/controls';
 
 /** Words that exercise joins, ligatures and diacritics. */
 const SAMPLES = ['كَلِمَة', 'السَّلَامُ عَلَيْكُمْ', 'مُدَرِّسَة', 'لِلْأَطْفَالِ', 'مستشفى', 'محمد', 'لا', 'جـمـيـل'];
@@ -16,6 +18,7 @@ const state = {
   fontId: 'amiri' as FontId,
   guides: true,
   inspect: false,
+  shape: defaultsOf<ShapeParams>(SHAPE_PARAMS),
 };
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -30,14 +33,15 @@ renderer.mount($('artboard'));
 async function update() {
   try {
     const font = await loadFont(state.fontId);
-    const line = shapeLine(font, state.text);
+    const composition = buildComposition(font, state.text, state.shape);
     renderer.render({
-      line,
+      composition,
+      weight: (state.shape.weight * font.unitsPerEm) / 1000,
       guides: state.guides,
       inspect: state.inspect,
       referenceFontFamily: CSS_FAMILY[state.fontId],
     });
-    status.textContent = `${font.name} · ${line.glyphs.length} glyphs`;
+    status.textContent = `${font.name} · ${composition.glyphs.length} glyphs`;
   } catch (err) {
     console.error(err);
     status.textContent = `Error: ${(err as Error).message}`;
@@ -72,6 +76,17 @@ for (const f of FONT_CATALOG) fontSelect.add(new Option(f.name, f.id));
 fontSelect.value = state.fontId;
 fontSelect.addEventListener('change', () => {
   state.fontId = fontSelect.value as FontId;
+  update();
+});
+
+const shapeValues = state.shape as unknown as Record<string, number | string>;
+const refreshShape = buildControls($('shape-controls'), SHAPE_PARAMS, shapeValues, (key, value) => {
+  shapeValues[key] = value;
+  update();
+});
+$('reset-shape').addEventListener('click', () => {
+  Object.assign(state.shape, defaultsOf<ShapeParams>(SHAPE_PARAMS));
+  refreshShape();
   update();
 });
 

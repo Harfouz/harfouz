@@ -91,16 +91,18 @@ body {
 }
 
 .artboard {
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 280px;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
   background: var(--sheet);
   border: 1px solid var(--line);
   color: var(--ink);
 }
-.artboard svg { width: 92%; height: 82%; overflow: visible; }
+/* Absolutely positioned so the drawing never pushes the layout around;
+   the viewBox keeps it centred and proportional inside this box. */
+.artboard svg { position: absolute; inset: 6% 4% 10%; width: 92%; height: 84%; }
 
 .status {
   position: absolute;
@@ -164,6 +166,65 @@ body {
 }
 .chip:hover { color: var(--ink); border-color: var(--ink-soft); }
 .chip[aria-pressed='true'] { color: var(--sheet); background: var(--ink); border-color: var(--ink); }
+
+.panel__head { display: flex; align-items: baseline; justify-content: space-between; }
+.link-button {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.link-button:hover { color: var(--accent); }
+
+/* ── Parameter controls ────────────────────────────────── */
+.controls { display: grid; gap: 12px; }
+.control { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 8px; }
+.control--choice { grid-template-columns: 1fr; }
+.control__label { font-size: 12px; color: var(--ink-soft); cursor: default; user-select: none; }
+.control__value { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.control.is-default .control__value { color: var(--muted); }
+.control input[type='range'] { grid-column: 1 / -1; }
+
+input[type='range'] {
+  --fill: 0%;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 2px;
+  background: linear-gradient(to right, var(--ink) var(--fill), var(--line) var(--fill));
+}
+input[type='range']::-moz-range-track { height: 2px; background: var(--line); }
+input[type='range']::-moz-range-progress { height: 2px; background: var(--ink); }
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--sheet);
+  border: 2px solid var(--ink);
+}
+input[type='range']::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sheet);
+  border: 2px solid var(--ink);
+}
+input[type='range']:focus-visible { outline: none; }
+input[type='range']:focus-visible::-webkit-slider-thumb { border-color: var(--accent); box-shadow: 0 0 0 3px var(--guide); }
+input[type='range']:hover::-webkit-slider-thumb { border-color: var(--accent); }
 
 .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .toggle input { accent-color: var(--accent); }

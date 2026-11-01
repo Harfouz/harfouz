@@ -1,8 +1,13 @@
-import type { ShapedLine } from '../core/types';
+import type { Composition } from '../core/types';
 
 /** Everything a renderer needs to draw one frame. */
 export interface RenderInput {
-  line: ShapedLine;
+  composition: Composition;
+  /**
+   * Outline weight in font units: positive thickens the letters,
+   * negative erodes them.
+   */
+  weight: number;
   /** Draw baseline and ascender/descender guides. */
   guides: boolean;
   /** Debug view: glyph boxes plus the browser's own rendering as a reference. */

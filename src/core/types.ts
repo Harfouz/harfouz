@@ -24,6 +24,11 @@ export interface ShapedGlyph {
    * lets us treat "a letter" as one unit (e.g. for per-letter colors).
    */
   cluster: number;
+  /**
+   * Index of the source character this glyph belongs to, in the text the user
+   * typed. Same as `cluster` unless kashidas were inserted before shaping.
+   */
+  letter: number;
   /** Origin of the glyph on the line, in font units. */
   x: number;
   y: number;
@@ -40,6 +45,30 @@ export interface ShapedLine {
   text: string;
   glyphs: ShapedGlyph[];
   /** Total advance width of the line. */
+  width: number;
+  unitsPerEm: number;
+  ascender: number;
+  descender: number;
+}
+
+/**
+ * A glyph whose outline has been placed on the line: commands are in
+ * absolute line coordinates (still font units, y up). This is what geometry
+ * modifiers transform and what renderers draw.
+ */
+export interface GlyphShape {
+  letter: number;
+  cluster: number;
+  isMark: boolean;
+  /** Pen position and advance before geometric modifiers (used by the inspector). */
+  x: number;
+  advance: number;
+  commands: PathCommand[];
+}
+
+export interface Composition {
+  text: string;
+  glyphs: GlyphShape[];
   width: number;
   unitsPerEm: number;
   ascender: number;

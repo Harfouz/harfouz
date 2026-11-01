@@ -10,7 +10,7 @@ import type { ShapedGlyph, ShapedLine } from './types';
  * diacritics on their base letter. Everything downstream works on this
  * result, so deformations never break the joins.
  */
-export function shapeLine(font: LoadedFont, text: string): ShapedLine {
+export function shapeLine(font: LoadedFont, text: string, sourceIndex?: number[]): ShapedLine {
   const buffer = new hb.Buffer();
   buffer.addText(text);
   buffer.setDirection(hb.Direction.RTL);
@@ -32,6 +32,7 @@ export function shapeLine(font: LoadedFont, text: string): ShapedLine {
     glyphs.push({
       glyphId,
       cluster: info.cluster,
+      letter: sourceIndex?.[info.cluster] ?? info.cluster,
       x: penX + pos.xOffset,
       y: penY + pos.yOffset,
       advance: pos.xAdvance,
