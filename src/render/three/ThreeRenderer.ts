@@ -29,11 +29,12 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Composition } from '../../core/types';
-import { grainOf, inkOf, letterFill, resolveColor } from '../look';
+import { inkOf, letterFill, resolveColor, textureOf } from '../look';
+import { HAIRY } from '../textures';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
 import { deformGeometry, findJunctions, letterSpans, type LetterFrame } from './deform';
-import { MaterialLibrary } from './materials';
+import { furLayers, MaterialLibrary } from './materials';
 
 /** Where the camera looks from by default: a little to the left and above. */
 const DEFAULT_VIEW = new Vector3(-0.38, 0.22, 1).normalize();
@@ -244,12 +245,27 @@ export class ThreeRenderer implements Renderer {
       // One group per letter, holding the volume (and its edges for the outline preset).
       const group = new Group();
       group.userData.letter = index;
-      const mesh = new Mesh(geometry, this.materials.get(p.material, color, grainOf(p)));
+      const texture = textureOf(p);
+      const mesh = new Mesh(geometry, this.materials.get(p.material, color, texture, em));
       mesh.userData.letter = index;
       mesh.receiveShadow = true;
       // Glass and outlines would cast a solid black shadow, which looks wrong.
       mesh.castShadow = p.material !== 'glass' && p.material !== 'outline';
       group.add(mesh);
+
+      // Hairy textures grow fur: layers of the same volume pushed outwards
+      // in the shader, each keeping only the hairs that reach it.
+      const furLength = p.furLength * perMille;
+      if (texture && HAIRY.has(texture.id) && furLength > 0 && p.material !== 'outline' && p.material !== 'glass') {
+        const layers = furLayers(furLength);
+        for (let i = 1; i <= layers; i++) {
+          const layer = new Mesh(geometry, this.materials.fur(color, texture, i / layers, furLength, em));
+          layer.userData.letter = index;
+          layer.userData.fur = true;
+          layer.receiveShadow = true;
+          group.add(layer);
+        }
+      }
       if (p.material === 'outline') {
         // Keep the mesh for picking, but only draw its edges.
         mesh.visible = false;
@@ -378,8 +394,9 @@ export class ThreeRenderer implements Renderer {
     // Export a copy without editor helpers, at a real-world-ish scale (1 em = 1 unit).
     const copy = this.turntable.clone(true);
     // Invisible picking meshes (outline preset) are not part of the artwork.
+    // Fur layers are shaped in the shader, which a model file can't carry.
     const hidden: Object3D[] = [];
-    copy.traverse((o) => !o.visible && hidden.push(o));
+    copy.traverse((o) => (!o.visible || o.userData.fur) && hidden.push(o));
     for (const o of hidden) o.removeFromParent();
     const result = await new GLTFExporter().parseAsync(copy, { binary: true });
     return result as ArrayBuffer;

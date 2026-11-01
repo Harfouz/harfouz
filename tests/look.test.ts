@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ParamState } from '../src/params/state';
-import { grainOf, letterFill, PALETTES } from '../src/render/look';
+import { letterFill, PALETTES, textureOf } from '../src/render/look';
 
 const INK = '#1a1612';
 
@@ -34,14 +34,50 @@ describe('letter colours', () => {
   });
 });
 
-describe('grain', () => {
-  it('paper always has some grain, other materials follow the slider', () => {
+describe('textures', () => {
+  it('no texture by default, except paper which shows paper grain', () => {
+    const p = new ParamState();
+    expect(textureOf(p.word)).toBeNull();
+    p.set(null, 'material', 'paper');
+    expect(textureOf(p.word)?.id).toBe('grain');
+  });
+
+  it('paper keeps some grain even at low strength', () => {
     const p = new ParamState();
     p.set(null, 'material', 'paper');
-    expect(grainOf(p.word)).toBeGreaterThan(0);
-    p.set(null, 'material', 'metal');
-    expect(grainOf(p.word)).toBe(0);
+    p.set(null, 'grain', 0);
+    expect(textureOf(p.word)!.strength).toBeGreaterThan(0.4);
+  });
+
+  it('a chosen texture follows the strength and size sliders', () => {
+    const p = new ParamState();
+    p.set(null, 'texture', 'marble');
     p.set(null, 'grain', 30);
-    expect(grainOf(p.word)).toBeCloseTo(0.3);
+    p.set(null, 'textureScale', 250);
+    expect(textureOf(p.word)).toEqual({ id: 'marble', strength: 0.3, scale: 2.5 });
+    p.set(null, 'grain', 0);
+    expect(textureOf(p.word)).toBeNull();
+  });
+
+  it('each letter can have its own texture', () => {
+    const p = new ParamState();
+    p.set(2, 'texture', 'fur');
+    expect(textureOf(p.resolve(2))?.id).toBe('fur');
+    expect(textureOf(p.resolve(1))).toBeNull();
+  });
+});
+
+describe('texture catalogue', () => {
+  it('every texture has a name, a size and an entry in the Texture menu', async () => {
+    const { TEXTURES, TEXTURE_LABELS, TILE_SIZE, HAIRY } = await import('../src/render/textures');
+    const { LOOK_PARAMS } = await import('../src/params/schema');
+    const menu = LOOK_PARAMS.find((d) => d.key === 'texture')!;
+    const options = 'options' in menu ? menu.options.map((o) => o.value) : [];
+    for (const t of TEXTURES) {
+      expect(TEXTURE_LABELS[t]).toBeTruthy();
+      expect(TILE_SIZE[t]).toBeGreaterThan(0);
+      expect(options).toContain(t);
+    }
+    for (const t of HAIRY) expect(TEXTURES).toContain(t);
   });
 });

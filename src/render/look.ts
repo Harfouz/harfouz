@@ -1,4 +1,5 @@
 import type { Params } from '../params/schema';
+import type { TextureId } from './textures';
 
 /** Letter colour palettes for the "one colour per letter" mode. */
 export const PALETTES: Record<string, string[]> = {
@@ -44,7 +45,25 @@ export function letterFill(word: Params, letter: Params, order: number, ink: str
   }
 }
 
-/** Paper always shows some grain, other materials only what the slider asks for. */
-export function grainOf(p: Params): number {
-  return (p.material === 'paper' ? Math.max(p.grain, 45) : p.grain) / 100;
+export interface TextureChoice {
+  id: TextureId;
+  /** 0 → 1 */
+  strength: number;
+  /** Size multiplier (1 = the texture's natural size). */
+  scale: number;
+}
+
+/**
+ * The texture on a letter, or null. Paper shows paper grain when no other
+ * texture is chosen, and always at least a little of it.
+ */
+export function textureOf(p: Params): TextureChoice | null {
+  const paperDefault = p.texture === 'none' && p.material === 'paper';
+  const id: TextureId | null = p.texture !== 'none' ? p.texture : paperDefault ? 'grain' : null;
+  if (!id) return null;
+  const strength = (paperDefault ? Math.max(p.grain, 45) : p.grain) / 100;
+  if (strength <= 0) return null;
+  // Rounded, so slowly animated values don't create a new texture every frame.
+  const round = (v: number, step: number) => Number((Math.round(v / step) * step).toFixed(2));
+  return { id, strength: round(strength, 0.05), scale: round(p.textureScale / 100, 0.05) };
 }

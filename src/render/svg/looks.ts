@@ -1,4 +1,5 @@
 import type { MaterialId } from '../../params/schema';
+import { shadeDataUrl, TILE_SIZE, type TextureId } from '../textures';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -30,16 +31,27 @@ export function flatLook(material: MaterialId) {
 }
 
 /**
- * An SVG filter for one (material, grain) pair, sized in font units.
- * Returns null when the look needs no filter.
- *
- * Pipeline: light the edges (specular lighting on a blurred alpha), add
- * paper grain (fractal noise multiplied into the colour, clipped to the
- * letter), then lay everything over a soft drop shadow.
+ * A repeating pattern of a texture, for filling letters (font units).
+ * Textures are laid over the letter's colour in "multiply" mode, which
+ * works for letters of any size and in other software opening the SVG.
  */
-export function lookFilter(id: string, material: MaterialId, grain: number, em: number): SVGElement | null {
+export function texturePattern(id: string, texture: TextureId, scale: number, em: number): SVGElement {
+  const tile = (TILE_SIZE[texture] * em * scale) / 1000;
+  return el('pattern', { id, patternUnits: 'userSpaceOnUse', width: tile, height: tile }, [
+    el('image', { href: shadeDataUrl(texture), width: tile, height: tile, preserveAspectRatio: 'none' }),
+  ]);
+}
+
+/**
+ * An SVG filter for a material, sized in font units. Returns null when the
+ * look needs no filter.
+ *
+ * Pipeline: light the edges (specular lighting on a blurred alpha), then lay
+ * everything over a soft drop shadow.
+ */
+export function lookFilter(id: string, material: MaterialId, em: number): SVGElement | null {
   const look = flatLook(material);
-  if (material === 'outline' || (look.relief === 0 && !look.shadow && grain === 0)) return null;
+  if (material === 'outline' || (look.relief === 0 && !look.shadow)) return null;
   const steps: Element[] = [];
   let current = 'SourceGraphic';
 
@@ -62,31 +74,6 @@ export function lookFilter(id: string, material: MaterialId, grain: number, em: 
       el('feComposite', { in: current, in2: 'shineIn', operator: 'arithmetic', k1: 0, k2: 1, k3: 1, k4: 0, result: 'lit' }),
     );
     current = 'lit';
-  }
-
-  if (grain > 0) {
-    steps.push(
-      el('feTurbulence', { type: 'fractalNoise', baseFrequency: 42 / em, numOctaves: 2, seed: 3, result: 'noise' }),
-      // Grey noise with an opaque alpha, so it only modulates the colour.
-      el('feColorMatrix', {
-        in: 'noise',
-        type: 'matrix',
-        values: '0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 0 1',
-        result: 'grey',
-      }),
-      el('feComposite', {
-        in: current,
-        in2: 'grey',
-        operator: 'arithmetic',
-        k1: grain * 1.2,
-        k2: 1 - grain * 0.6,
-        k3: 0,
-        k4: 0,
-        result: 'grainy',
-      }),
-      el('feComposite', { in: 'grainy', in2: 'SourceAlpha', operator: 'in', result: 'grained' }),
-    );
-    current = 'grained';
   }
 
   if (look.shadow) {

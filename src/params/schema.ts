@@ -1,3 +1,5 @@
+import { HAIRY, TEXTURE_LABELS, TEXTURES, type TextureId } from '../render/textures';
+
 /**
  * Every parameter the user can tweak, described once. The panel is built
  * from this list, and the animation step will read the same ranges.
@@ -9,6 +11,26 @@
  * single letter. `scope` restricts the few that only make sense at one level.
  */
 
+export interface ShowIf {
+  key: string;
+  equals?: string;
+  notEquals?: string;
+  oneOf?: readonly string[];
+}
+
+/** Is a parameter with this condition visible, given the current values? */
+export function isShown(def: { showIf?: ShowIf | ShowIf[] }, get: (key: string) => unknown): boolean {
+  if (!def.showIf) return true;
+  const conditions = Array.isArray(def.showIf) ? def.showIf : [def.showIf];
+  return conditions.some((c) => {
+    const v = String(get(c.key));
+    if (c.equals !== undefined && v !== c.equals) return false;
+    if (c.notEquals !== undefined && v === c.notEquals) return false;
+    if (c.oneOf && !c.oneOf.includes(v)) return false;
+    return true;
+  });
+}
+
 /** 'word': only for the whole word. 'letter': only for a single letter. Absent: both. */
 export type ParamScope = 'word' | 'letter';
 
@@ -17,8 +39,11 @@ interface BaseParam {
   label: string;
   hint?: string;
   scope?: ParamScope;
-  /** Only shown when another parameter has this value (e.g. gradient colours). */
-  showIf?: { key: string; equals: string };
+  /**
+   * Only shown when another parameter has a given value (e.g. gradient
+   * colours). A list means "any of these".
+   */
+  showIf?: ShowIf | ShowIf[];
 }
 
 export interface RangeParam extends BaseParam {
@@ -196,8 +221,22 @@ export const LOOK_PARAMS = [
     ],
   },
   {
-    kind: 'range', key: 'grain', label: 'Grain', min: 0, max: 100, step: 1, default: 0, unit: '%',
-    hint: 'Surface texture. Paper always has some.',
+    kind: 'choice', key: 'texture', label: 'Texture', default: 'none',
+    hint: 'A surface pattern, combined with the material. Paper has paper grain unless you pick another texture.',
+    options: [{ value: 'none', label: 'None' }, ...TEXTURES.map((t) => ({ value: t, label: TEXTURE_LABELS[t] }))],
+  },
+  {
+    kind: 'range', key: 'textureScale', label: 'Texture size', min: 20, max: 400, step: 1, default: 100, unit: '%',
+    showIf: [{ key: 'texture', notEquals: 'none' }, { key: 'material', equals: 'paper' }],
+  },
+  {
+    kind: 'range', key: 'grain', label: 'Texture strength', min: 0, max: 100, step: 1, default: 60, unit: '%',
+    showIf: [{ key: 'texture', notEquals: 'none' }, { key: 'material', equals: 'paper' }],
+  },
+  {
+    kind: 'range', key: 'furLength', label: 'Fur length', min: 0, max: 300, step: 1, default: 70, unit: '‰',
+    hint: 'In 3D, hairy textures grow real fur. 0 keeps it flat.',
+    showIf: { key: 'texture', oneOf: [...HAIRY] },
   },
 ] as const satisfies readonly ParamDef[];
 
@@ -207,7 +246,11 @@ export interface LookParams {
   color: string;
   color2: string;
   palette: string;
+  texture: 'none' | TextureId;
+  textureScale: number;
+  /** Texture strength, in % (kept as "grain" from the first version). */
   grain: number;
+  furLength: number;
 }
 
 /** Every parameter, resolved for one letter (or for the whole word). */

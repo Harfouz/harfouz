@@ -13,6 +13,7 @@ import {
 } from './params/animation';
 import {
   inScope,
+  isShown,
   LOOK_PARAMS,
   SHAPE_PARAMS,
   SPACE_PARAMS,
@@ -230,7 +231,7 @@ function bindParams(containerId: string, resetId: string, defs: readonly ParamDe
     },
     isModified: (key) => params.isModified(state.selected, key as keyof Params),
     isAvailable: (def) =>
-      inScope(def, level()) && (!def.showIf || params.get(state.selected, def.showIf.key as keyof Params) === def.showIf.equals),
+      inScope(def, level()) && isShown(def, (k) => params.get(state.selected, k as keyof Params)),
     decorate: (def, row) => (isAnimatable(def.key) ? addAnimToggle(def as RangeParam, row) : () => {}),
   });
   refreshers.push(refresh);

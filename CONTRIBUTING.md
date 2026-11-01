@@ -40,6 +40,7 @@ Every change must keep the Arabic correct. In practice:
 | Add or change a slider | `src/params/schema.ts` (the panel, per-letter editing and animation are built from it) |
 | Add a deformation | `src/modifiers/` (and register it in `src/modifiers/index.ts`) |
 | Add a 3D material | `src/render/three/materials.ts`, its 2D look in `src/render/svg/looks.ts`, its name in `LOOK_PARAMS` |
+| Add a texture | `src/render/textures.ts` (a generator, a label and a tile size); it appears in the menu automatically |
 | Add a colour palette | `PALETTES` in `src/render/look.ts` and the `palette` options in `src/params/schema.ts` |
 | Add a motion preset | `MOTION_PRESETS` in `src/params/animation.ts` |
 | Add an export format | `src/export/formats.ts` and `src/export/exporter.ts` |

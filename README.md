@@ -15,7 +15,14 @@ Harfouz is made for designers, animators and type lovers. Its one rule: **the Ar
 
 **Shape**: weight, slant, kashida (real tatweel insertion, reshaped, never splitting lam-alef), width, spacing that never breaks a join, and organic distortion.
 
-**Colour and material**: solid, gradient along the word, or one colour per letter from curated palettes. Six materials: satin, clay, paper grain, metal, glass and outline only. In 2D they become relief, grain and outline looks.
+**Colour, material and texture**: solid, gradient along the word, or one colour per letter from curated palettes. Six materials: satin, clay, paper, metal, glass and outline only. 17 textures generated in code, to combine with any material:
+- paper grain, paper fibres, linen;
+- marble, stone, rough rock, terrazzo;
+- brushed and hammered metal;
+- zellige tiles and khatam (8-pointed stars);
+- short fur, long hair, wool, leopard and zebra coats, reptile scales.
+
+In 3D, hairy textures **grow real fur**. In 2D, materials become relief, grain and outline looks, and textures are kept in SVG exports.
 
 **Space (3D)**: extruded letters with depth and bevel, in a lit scene with soft shadows and an orbit camera. Stagger, twist, spin, and per-letter push, lift, turn and tilt. **Connected letters stay attached**: the joining stroke bends and stretches instead of breaking.
 

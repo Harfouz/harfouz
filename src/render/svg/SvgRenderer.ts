@@ -1,8 +1,8 @@
 import type { Composition } from '../../core/types';
 import type { Params } from '../../params/schema';
-import { grainOf, inkOf, letterFill, resolveColor } from '../look';
+import { inkOf, letterFill, resolveColor, textureOf } from '../look';
 import type { Renderer, RenderInput } from '../Renderer';
-import { flatLook, lookFilter } from './looks';
+import { flatLook, lookFilter, texturePattern } from './looks';
 import { toSvgPathData } from './pathData';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -92,6 +92,7 @@ export class SvgRenderer implements Renderer {
     // Each letter: an outer group for colour and material look, an inner one
     // for erosion (an element can only carry one filter).
     const inner = new Map<number, SVGGElement>();
+    const overlays = new Map<number, SVGGElement>();
     for (const g of comp.glyphs) {
       let group = inner.get(g.letter);
       if (!group) {
@@ -99,15 +100,33 @@ export class SvgRenderer implements Renderer {
         const fill = letterFill(word, p, letters.size, inkColor);
         const paint = fill === 'gradient' ? `url(#${GRADIENT_ID})` : fill;
         const outer = el('g', { 'data-letter': g.letter, class: 'letter' });
-        this.applyLook(outer, p.material, paint, grainOf(p), em, defs);
+        this.applyLook(outer, p.material, paint, em, defs);
         group = el('g');
         this.applyWeight(outer, group, weightOf(g.letter), paint, defs);
         outer.appendChild(group);
+        const texture = textureOf(p);
+        if (texture && p.material !== 'outline') {
+          // The same shapes again, filled with the texture and multiplied
+          // over the colour (filled in once all paths are known, below).
+          const patternId = `harfouz-tex-${texture.id}-${Math.round(texture.scale * 100)}`;
+          if (!defs.querySelector(`#${patternId}`)) defs.appendChild(texturePattern(patternId, texture.id, texture.scale, em));
+          const overlay = el('g', {
+            class: 'texture',
+            fill: `url(#${patternId})`,
+            opacity: texture.strength,
+            style: 'mix-blend-mode: multiply',
+          });
+          if (weightOf(g.letter) > 0) overlay.setAttribute('stroke', `url(#${patternId})`);
+          outer.appendChild(overlay);
+          overlays.set(g.letter, overlay);
+        }
         letters.set(g.letter, outer);
         inner.set(g.letter, group);
         ink.appendChild(outer);
       }
-      group.appendChild(el('path', { d: toSvgPathData(g.commands) }));
+      const d = toSvgPathData(g.commands);
+      group.appendChild(el('path', { d }));
+      overlays.get(g.letter)?.appendChild(el('path', { d }));
     }
     this.svg.appendChild(ink);
 
@@ -118,7 +137,7 @@ export class SvgRenderer implements Renderer {
   }
 
   /** Colour, see-through and material filter (relief, grain, shadow). */
-  private applyLook(group: SVGGElement, material: Params['material'], paint: string, grain: number, em: number, defs: SVGDefsElement) {
+  private applyLook(group: SVGGElement, material: Params['material'], paint: string, em: number, defs: SVGDefsElement) {
     if (material === 'outline') {
       group.setAttribute('fill', 'none');
       group.setAttribute('stroke', paint);
@@ -129,9 +148,9 @@ export class SvgRenderer implements Renderer {
     group.setAttribute('fill', paint);
     const { opacity } = flatLook(material);
     if (opacity < 1) group.setAttribute('fill-opacity', String(opacity));
-    const id = `harfouz-look-${material}-${Math.round(grain * 100)}`;
+    const id = `harfouz-look-${material}`;
     if (!defs.querySelector(`#${id}`)) {
-      const filter = lookFilter(id, material, grain, em);
+      const filter = lookFilter(id, material, em);
       if (!filter) return;
       defs.appendChild(filter);
     }
