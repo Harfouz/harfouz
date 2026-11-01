@@ -8,9 +8,11 @@ import type { ShapedLine } from '../core/types';
  * links them, so extra space only goes where a letter is NOT connected to
  * the next one (after ا د ر و…, between words). Diacritics move with their
  * letter because offsets are computed per cluster.
+ *
+ * `amount` is the gap after each letter, in font units.
  */
-export function applySpacing(line: ShapedLine, amount: number): ShapedLine {
-  if (amount === 0) return line;
+export function applySpacing(line: ShapedLine, amount: number | ((letter: number) => number)): ShapedLine {
+  const gapAfter = typeof amount === 'number' ? () => amount : amount;
   const breaks = breaksAfter(line.text);
 
   // Walk bases from right to left (logical order) and accumulate the shift
@@ -22,8 +24,9 @@ export function applySpacing(line: ShapedLine, amount: number): ShapedLine {
     const g = bases[i];
     if (!shiftByCluster.has(g.cluster)) shiftByCluster.set(g.cluster, shift);
     const isLast = i === 0;
-    if (!isLast && breaks[g.cluster]) shift -= amount;
+    if (!isLast && breaks[g.cluster]) shift -= gapAfter(g.letter);
   }
+  if (shift === 0) return line;
   const total = -shift;
 
   const glyphs = line.glyphs.map((g) => ({ ...g, x: g.x + total + (shiftByCluster.get(g.cluster) ?? 0) }));

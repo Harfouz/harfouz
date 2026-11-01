@@ -1,16 +1,15 @@
 import type { Composition } from '../core/types';
-import type { SpaceParams } from '../params/schema';
+import type { Params } from '../params/schema';
 
 /** Everything a renderer needs to draw one frame. */
 export interface RenderInput {
   composition: Composition;
-  /**
-   * Outline weight in font units: positive thickens the letters,
-   * negative erodes them.
-   */
-  weight: number;
-  /** 3D placement and volume, in thousandths of an em (ignored in 2D). */
-  space: SpaceParams;
+  /** Word-level values (lengths in ‰ em). */
+  word: Params;
+  /** Effective values for one letter: the word's, plus that letter's overrides. */
+  letter: (index: number) => Params;
+  /** Letter currently being edited, or null when editing the whole word. */
+  selected: number | null;
   /** Draw baseline and ascender/descender guides (2D only). */
   guides: boolean;
   /** Debug view: glyph boxes plus the browser's own rendering as a reference (2D only). */
@@ -27,5 +26,7 @@ export interface RenderInput {
 export interface Renderer {
   mount(container: HTMLElement): void;
   render(input: RenderInput): void;
+  /** Called when the user clicks a letter (its index) or empty space (null). */
+  onPick?: (letter: number | null) => void;
   destroy(): void;
 }

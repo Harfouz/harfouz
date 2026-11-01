@@ -3,32 +3,54 @@ import { insertKashida } from '../core/kashida';
 import { shapeLine } from '../core/shaping';
 import type { Composition } from '../core/types';
 import type { ShapeParams } from '../params/schema';
-import { applyWidthAndSlant, toComposition } from './geometry';
+import { applySlant, toComposition } from './geometry';
 import { applyNoise } from './noise';
 import { applySpacing } from './spacing';
+import { applyWidth } from './width';
+
+/** Shape parameters for one letter, by its index in the typed text. */
+export type ShapeResolver = (letter: number) => ShapeParams;
 
 /**
  * The full shape pipeline, in order:
  *   1. kashida   – edits the text itself (tatweels), before shaping
  *   2. shaping   – HarfBuzz picks joined forms and places diacritics
- *   3. spacing   – opens gaps only between unconnected letters
- *   4. width + slant – exact affine transforms of the whole line
- *   5. distortion – smooth noise field on flattened outlines
+ *   3. width     – stretches each letter and re-lays the line out
+ *   4. spacing   – opens gaps only between unconnected letters
+ *   5. slant     – exact shear of the outlines
+ *   6. distortion – smooth noise field on flattened outlines
  *
- * Weight is not here: it is a rendering effect (stroke / erosion).
+ * Every step reads the parameters of the letter it is working on, so each
+ * letter can have its own values. Weight and the 3D settings are applied
+ * by the renderers.
+ *
+ * `params` is either one set of values for the whole word or a resolver
+ * giving each letter its own.
  */
-export function buildComposition(font: LoadedFont, source: string, params: ShapeParams, time = 0): Composition {
+export function buildComposition(
+  font: LoadedFont,
+  source: string,
+  params: ShapeParams | ShapeResolver,
+  time = 0,
+): Composition {
+  const resolve: ShapeResolver = typeof params === 'function' ? params : () => params;
+  const word = resolve(-1);
   const perMille = font.unitsPerEm / 1000;
-  const { text, sourceIndex } = insertKashida(source, params.kashida, params.kashidaPlacement);
+
+  const { text, sourceIndex } = insertKashida(
+    source,
+    (i) => resolve(i).kashida,
+    word.kashidaPlacement,
+    (i) => resolve(i).kashida !== word.kashida,
+  );
   let line = shapeLine(font, text, sourceIndex);
-  line = applySpacing(line, params.spacing * perMille);
+  line = applyWidth(line, (l) => resolve(l).width);
+  line = applySpacing(line, (l) => resolve(l).spacing * perMille);
   let comp = toComposition(line);
-  comp = applyWidthAndSlant(comp, params.width, params.slant);
-  comp = applyNoise(comp, {
-    amount: params.noise * perMille,
-    scale: params.noiseScale,
-    seed: params.seed,
-    time,
+  comp = applySlant(comp, (l) => resolve(l).slant);
+  comp = applyNoise(comp, (l) => {
+    const p = resolve(l);
+    return { amount: p.noise * perMille, scale: p.noiseScale, seed: p.seed, time };
   });
   return comp;
 }

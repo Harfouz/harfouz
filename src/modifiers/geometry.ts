@@ -44,24 +44,19 @@ export function mapCommands(commands: PathCommand[], f: PointMap): PathCommand[]
   });
 }
 
-export function mapComposition(comp: Composition, f: PointMap): Composition {
-  return { ...comp, glyphs: comp.glyphs.map((g) => ({ ...g, commands: mapCommands(g.commands, f) })) };
-}
-
 /**
- * Horizontal stretch and slant are affine: applying them to control points
- * is exact, so curves stay curves. The whole line is transformed at once,
- * which keeps connected letters connected.
+ * Slant is a shear: x moves in proportion to the height above the baseline.
+ * It is applied to control points, which is exact (curves stay curves), and
+ * since it only depends on y, each letter can have its own angle while
+ * joins on the baseline stay in place.
  */
-export function applyWidthAndSlant(comp: Composition, widthPercent: number, slantDeg: number): Composition {
-  const sx = widthPercent / 100;
-  const shear = Math.tan((slantDeg * Math.PI) / 180);
-  if (sx === 1 && shear === 0) return comp;
-  const out = mapComposition(comp, (p) => ({ x: p.x * sx + p.y * shear, y: p.y }));
+export function applySlant(comp: Composition, slantDeg: (letter: number) => number): Composition {
   return {
-    ...out,
-    width: comp.width * sx,
-    glyphs: out.glyphs.map((g) => ({ ...g, x: g.x * sx, advance: g.advance * sx })),
+    ...comp,
+    glyphs: comp.glyphs.map((g) => {
+      const shear = Math.tan((slantDeg(g.letter) * Math.PI) / 180);
+      return shear === 0 ? g : { ...g, commands: mapCommands(g.commands, (p) => ({ x: p.x + p.y * shear, y: p.y })) };
+    }),
   };
 }
 

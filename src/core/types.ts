@@ -34,6 +34,8 @@ export interface ShapedGlyph {
   y: number;
   /** Horizontal advance (0 for most diacritics). */
   advance: number;
+  /** Offset from the pen position chosen by the font (GPOS), e.g. to place a mark. */
+  xOffset: number;
   /** True for combining marks (harakat, shadda, hamza above/below…). */
   isMark: boolean;
   /** Outline relative to the glyph origin. */

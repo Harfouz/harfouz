@@ -47,6 +47,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Components set their own display, so make `hidden` always win. */
+[hidden] { display: none !important; }
 
 html, body { height: 100%; }
 
@@ -84,11 +86,80 @@ body {
 
 .stage {
   position: relative;
-  display: grid;
-  place-items: center;
-  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 32px 32px 20px;
   min-height: 0;
 }
+.stage .artboard { flex: 1; }
+
+/* ── Letter picker ─────────────────────────────────────── */
+.letterbar { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.letterbar__word {
+  flex: none;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.letterbar__letters { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+.letter-chip {
+  position: relative;
+  min-width: 40px;
+  font-family: var(--font-ar);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 8px 10px;
+  cursor: pointer;
+}
+.letter-chip:hover, .letterbar__word:hover { color: var(--ink); border-color: var(--ink-soft); }
+.letter-chip[aria-pressed='true'], .letterbar__word[aria-pressed='true'] {
+  color: var(--sheet);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+/* A dot marks letters that have their own settings. */
+.letter-chip.has-overrides::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  inset-inline-end: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ── Editing scope banner ──────────────────────────────── */
+.scope {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 24px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.scope__label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.scope__target { flex: 1; font-size: 13px; }
+.scope__target .ar { font-family: var(--font-ar); font-size: 20px; color: var(--accent); }
+
+/* SVG selection frame */
+.selection { fill: none; stroke: var(--accent); stroke-width: 1.5px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.letter { cursor: pointer; }
 
 .artboard {
   position: relative;
@@ -139,8 +210,9 @@ body {
 
 .status {
   position: absolute;
-  inset-inline-start: 44px;
-  bottom: 40px;
+  inset-inline-start: 12px;
+  bottom: 10px;
+  pointer-events: none;
   margin: 0;
   font-family: var(--font-mono);
   font-size: 11px;
@@ -221,7 +293,9 @@ body {
 .control--choice { grid-template-columns: 1fr; }
 .control__label { font-size: 12px; color: var(--ink-soft); cursor: default; user-select: none; }
 .control__value { font-family: var(--font-mono); font-size: 11px; color: var(--accent); font-variant-numeric: tabular-nums; }
-.control.is-default .control__value { color: var(--muted); }
+.control__value { color: var(--muted); }
+.control.is-modified .control__value { color: var(--accent); }
+.control.is-modified .control__label::after { content: ' •'; color: var(--accent); }
 .control input[type='range'] { grid-column: 1 / -1; }
 
 input[type='range'] {
@@ -270,7 +344,9 @@ input[type='range']:hover::-webkit-slider-thumb { border-color: var(--accent); }
   .topbar__tag { display: none; }
   .layout { grid-template-columns: 1fr; }
   .stage { padding: 16px; height: 52vh; }
-  .status { inset-inline-start: 28px; bottom: 24px; }
+  .stage { height: auto; }
+  .stage .artboard { flex: none; height: 52vh; }
+  .scope { padding: 10px 16px; }
   .panel { border-inline-start: 0; border-top: 1px solid var(--line); }
   .panel__section { padding: 18px 16px; }
 }

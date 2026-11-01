@@ -36,6 +36,7 @@ export function shapeLine(font: LoadedFont, text: string, sourceIndex?: number[]
       x: penX + pos.xOffset,
       y: penY + pos.yOffset,
       advance: pos.xAdvance,
+      xOffset: pos.xOffset,
       isMark: font.hbFace.getGlyphClass(glyphId) === hb.GlyphClass.MARK,
       commands: glyphOutline(font, glyphId),
     });

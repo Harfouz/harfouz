@@ -25,11 +25,20 @@
         <div class="artboard" id="artboard">
           <div class="view" id="view-3d"></div>
           <div class="view" id="view-2d" hidden></div>
+          <p class="status" id="status" role="status"></p>
         </div>
-        <p class="status" id="status" role="status"></p>
+        <nav class="letterbar" aria-label="Choose what to edit">
+          <button type="button" class="letterbar__word" id="pick-word" aria-pressed="true">Whole word</button>
+          <div class="letterbar__letters" id="letters" dir="rtl"></div>
+        </nav>
       </section>
 
       <aside class="panel" aria-label="Controls">
+        <div class="scope" id="scope">
+          <span class="scope__label">Editing</span>
+          <span class="scope__target" id="scope-target">Whole word</span>
+          <button type="button" class="link-button" id="reset-letter" hidden>Reset letter</button>
+        </div>
         <section class="panel__section">
           <h2 class="panel__title"><span>01</span> Text</h2>
           <label class="field">

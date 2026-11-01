@@ -1,6 +1,7 @@
 import {
   ACESFilmicToneMapping,
   Box3,
+  Box3Helper,
   Color,
   DirectionalLight,
   ExtrudeGeometry,
@@ -12,10 +13,12 @@ import {
   PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
+  Raycaster,
   Scene,
   ShadowMaterial,
   Sphere,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
   type Shape,
@@ -58,6 +61,9 @@ export class ThreeRenderer implements Renderer {
   private container?: HTMLElement;
   private resizeObserver = new ResizeObserver(() => this.resize());
   private needsFraming = true;
+  private selection = new Box3Helper(new Box3(), 0xc0412b);
+  private raycaster = new Raycaster();
+  onPick?: (letter: number | null) => void;
 
   constructor() {
     const r = this.renderer;
@@ -84,7 +90,8 @@ export class ThreeRenderer implements Renderer {
 
     this.ground.rotation.x = -Math.PI / 2;
     this.ground.receiveShadow = true;
-    this.scene.add(this.ground, this.word);
+    this.scene.add(this.ground, this.word, this.selection);
+    this.selection.visible = false;
 
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
@@ -97,9 +104,27 @@ export class ThreeRenderer implements Renderer {
     container.appendChild(this.renderer.domElement);
     this.resizeObserver.observe(container);
     this.resize();
+    this.listenForPicks(this.renderer.domElement);
     this.renderer.setAnimationLoop(() => {
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
+    });
+  }
+
+  /** A click (not a drag) on a letter selects it; on empty space, the whole word. */
+  private listenForPicks(canvas: HTMLCanvasElement) {
+    let down: { x: number; y: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => (down = { x: e.clientX, y: e.clientY }));
+    canvas.addEventListener('pointerup', (e) => {
+      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return;
+      const rect = canvas.getBoundingClientRect();
+      const ndc = new Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      this.raycaster.setFromCamera(ndc, this.camera);
+      const hit = this.raycaster.intersectObjects(this.word.children, false)[0];
+      this.onPick?.(hit ? (hit.object.userData.letter as number) : null);
     });
   }
 
@@ -108,22 +133,22 @@ export class ThreeRenderer implements Renderer {
     this.needsFraming = true;
   }
 
-  render({ composition: comp, weight, space }: RenderInput) {
+  render({ composition: comp, word, letter, selected }: RenderInput) {
     const em = comp.unitsPerEm;
     const perMille = em / 1000;
-    const depth = Math.max(1, space.depth * perMille);
-    const bevel = Math.min(space.bevel * perMille, depth / 2);
+    const rad = Math.PI / 180;
 
     this.material.color = new Color(getComputedStyle(this.container ?? document.body).color);
     this.clearWord();
 
     const letters = shapesByLetter(comp);
-    const twist = (space.twist * Math.PI) / 180;
     const middle = (letters.length - 1) / 2;
-    letters.forEach(({ shapes }, index) => {
+    letters.forEach(({ letter: index, shapes }, order) => {
       if (!shapes.length) return;
-      // Measured from the middle letter, so stagger and twist keep the word centred.
-      const rank = index - middle;
+      const p = letter(index);
+      const depth = Math.max(1, p.depth * perMille);
+      const bevel = Math.min(p.bevel * perMille, depth / 2);
+      const weight = p.weight * perMille;
       const geometry = new ExtrudeGeometry(shapes, {
         depth,
         curveSegments: 10,
@@ -137,14 +162,22 @@ export class ThreeRenderer implements Renderer {
       });
       geometry.computeBoundingBox();
       const center = geometry.boundingBox!.getCenter(new Vector3());
-      // Pivot every letter around its own centre so twist turns it in place.
+      // Pivot every letter around its own centre so it turns in place.
       geometry.translate(-center.x, -center.y, -center.z);
 
       const mesh = new Mesh(geometry, this.material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      mesh.position.set(center.x, center.y, -rank * space.stagger * perMille);
-      mesh.rotation.y = rank * twist;
+      mesh.userData.letter = index;
+      // Stagger and twist are measured from the middle letter so the word stays centred;
+      // push, lift, turn and tilt are this letter's own placement.
+      const rank = order - middle;
+      mesh.position.set(
+        center.x,
+        center.y + p.lift * perMille,
+        -rank * word.stagger * perMille + p.push * perMille,
+      );
+      mesh.rotation.set(p.tilt * rad, (rank * word.twist + p.turn) * rad, 0);
       this.word.add(mesh);
     });
 
@@ -159,6 +192,14 @@ export class ThreeRenderer implements Renderer {
     if (this.needsFraming) {
       this.frame(box);
       this.needsFraming = false;
+    }
+
+    const chosen = this.word.children.find((m) => m.userData.letter === selected);
+    if (chosen) {
+      this.selection.box.setFromObject(chosen);
+      this.selection.visible = true;
+    } else {
+      this.selection.visible = false;
     }
   }
 

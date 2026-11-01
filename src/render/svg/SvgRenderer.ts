@@ -36,14 +36,23 @@ function bounds(comp: Composition) {
 export class SvgRenderer implements Renderer {
   readonly svg: SVGSVGElement = el('svg', { role: 'img' });
 
+  onPick?: (letter: number | null) => void;
+
   mount(container: HTMLElement) {
     container.appendChild(this.svg);
+    this.svg.addEventListener('click', (event) => {
+      const group = (event.target as Element).closest('[data-letter]');
+      this.onPick?.(group ? Number(group.getAttribute('data-letter')) : null);
+    });
   }
 
-  render({ composition: comp, weight, guides, inspect, referenceFontFamily }: RenderInput) {
+  render({ composition: comp, letter, selected, guides, inspect, referenceFontFamily }: RenderInput) {
     const em = comp.unitsPerEm;
+    const perMille = em / 1000;
+    const weightOf = (index: number) => letter(index).weight * perMille;
     const b = bounds(comp);
-    const pad = em * 0.2 + Math.max(0, weight);
+    const maxWeight = Math.max(0, ...comp.glyphs.map((g) => weightOf(g.letter)));
+    const pad = em * 0.2 + maxWeight;
     // Screen space is y down, so the top of the view is -maxY.
     this.svg.setAttribute(
       'viewBox',
@@ -51,25 +60,18 @@ export class SvgRenderer implements Renderer {
     );
     this.svg.setAttribute('aria-label', comp.text);
     this.svg.replaceChildren();
+    const defs = el('defs');
+    this.svg.appendChild(defs);
 
     if (guides) this.svg.appendChild(this.guides(b.minX - pad, b.maxX + pad, comp.ascender, comp.descender));
 
     const ink = el('g', { class: 'ink', fill: 'currentColor' });
-    if (weight > 0) {
-      // A stroke centred on the outline adds `weight` on each side.
-      ink.setAttribute('stroke', 'currentColor');
-      ink.setAttribute('stroke-width', String(weight * 2));
-      ink.setAttribute('stroke-linejoin', 'round');
-    } else if (weight < 0) {
-      this.svg.appendChild(this.erodeFilter(-weight));
-      ink.setAttribute('filter', `url(#${ERODE_FILTER_ID})`);
-    }
-
     const letters = new Map<number, SVGGElement>();
     for (const g of comp.glyphs) {
       let group = letters.get(g.letter);
       if (!group) {
-        group = el('g', { 'data-letter': g.letter });
+        group = el('g', { 'data-letter': g.letter, class: 'letter' });
+        this.applyWeight(group, weightOf(g.letter), defs);
         letters.set(g.letter, group);
         ink.appendChild(group);
       }
@@ -77,15 +79,42 @@ export class SvgRenderer implements Renderer {
     }
     this.svg.appendChild(ink);
 
+    const chosen = selected === null ? undefined : letters.get(selected);
+    if (chosen) this.svg.appendChild(this.selection(chosen, em));
+
     if (inspect) this.svg.appendChild(this.inspector(comp, referenceFontFamily));
   }
 
-  private erodeFilter(radius: number) {
-    const defs = el('defs');
-    const filter = el('filter', { id: ERODE_FILTER_ID, x: '-10%', y: '-10%', width: '120%', height: '120%' });
+  /** Positive weight: a stroke centred on the outline. Negative: erosion. */
+  private applyWeight(group: SVGGElement, weight: number, defs: SVGDefsElement) {
+    if (weight > 0) {
+      group.setAttribute('stroke', 'currentColor');
+      group.setAttribute('stroke-width', String(weight * 2));
+      group.setAttribute('stroke-linejoin', 'round');
+    } else if (weight < 0) {
+      const id = `${ERODE_FILTER_ID}-${Math.round(-weight * 10)}`;
+      if (!defs.querySelector(`#${id}`)) defs.appendChild(this.erodeFilter(id, -weight));
+      group.setAttribute('filter', `url(#${id})`);
+    }
+  }
+
+  /** Dashed frame around the letter being edited. */
+  private selection(group: SVGGElement, em: number) {
+    const box = group.getBBox();
+    const m = em * 0.04;
+    return el('rect', {
+      x: box.x - m,
+      y: box.y - m,
+      width: box.width + m * 2,
+      height: box.height + m * 2,
+      class: 'selection',
+    });
+  }
+
+  private erodeFilter(id: string, radius: number) {
+    const filter = el('filter', { id, x: '-10%', y: '-10%', width: '120%', height: '120%' });
     filter.appendChild(el('feMorphology', { operator: 'erode', radius }));
-    defs.appendChild(filter);
-    return defs;
+    return filter;
   }
 
   private guides(x0: number, x1: number, ascender: number, descender: number) {
