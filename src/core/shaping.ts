@@ -37,12 +37,21 @@ export function shapeLine(font: LoadedFont, text: string, sourceIndex?: number[]
       y: penY + pos.yOffset,
       advance: pos.xAdvance,
       xOffset: pos.xOffset,
-      isMark: font.hbFace.getGlyphClass(glyphId) === hb.GlyphClass.MARK,
+      isMark: false, // decided below, once the whole cluster is known
       commands: glyphOutline(font, glyphId),
     });
     penX += pos.xAdvance;
     penY += pos.yAdvance;
   });
+
+  // A glyph is a diacritic when the font says so (GDEF). Some fonts forget to
+  // classify combined marks (shadda + kasra drawn as one glyph); a glyph with
+  // no advance sharing its cluster with a letter that has one is a mark too.
+  const advancing = new Set(glyphs.filter((g) => g.advance > 0).map((g) => g.cluster));
+  for (const g of glyphs) {
+    const cls = font.hbFace.getGlyphClass(g.glyphId);
+    g.isMark = cls === hb.GlyphClass.MARK || (cls !== hb.GlyphClass.LIGATURE && g.advance === 0 && advancing.has(g.cluster));
+  }
 
   return {
     text,

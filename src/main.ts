@@ -1,4 +1,4 @@
-import { FONT_CATALOG, loadFont, type FontId, type LoadedFont } from './core/fonts';
+import { cssFamily, FONT_CATALOG, loadFont, type FontId, type LoadedFont } from './core/fonts';
 import { isMark } from './core/joining';
 import type { Composition } from './core/types';
 import { buildComposition } from './modifiers';
@@ -27,12 +27,6 @@ import { buildControls } from './ui/controls';
 
 /** Words that exercise joins, ligatures and diacritics. */
 const SAMPLES = ['كَلِمَة', 'السَّلَامُ عَلَيْكُمْ', 'مُدَرِّسَة', 'لِلْأَطْفَالِ', 'مستشفى', 'محمد', 'لا', 'جـمـيـل'];
-
-/** CSS font-family names declared in app.css, used by the inspector. */
-const CSS_FAMILY: Record<FontId, string> = {
-  amiri: 'Harfouz Amiri',
-  'noto-naskh': 'Harfouz Noto Naskh',
-};
 
 type Mode = '3d' | '2d';
 
@@ -102,7 +96,7 @@ function update() {
       selected: state.selected,
       guides: state.guides,
       inspect: state.inspect,
-      referenceFontFamily: CSS_FAMILY[state.fontId],
+      referenceFontFamily: cssFamily(state.fontId),
       geometryKey,
     });
     if (!clock.playing) {
@@ -448,7 +442,13 @@ for (const word of SAMPLES) {
   samples.appendChild(chip);
 }
 
-for (const f of FONT_CATALOG) fontSelect.add(new Option(f.name, f.id));
+// Typefaces grouped by style.
+for (const style of [...new Set(FONT_CATALOG.map((f) => f.style))]) {
+  const group = document.createElement('optgroup');
+  group.label = style;
+  for (const f of FONT_CATALOG.filter((x) => x.style === style)) group.appendChild(new Option(f.name, f.id));
+  fontSelect.appendChild(group);
+}
 fontSelect.value = state.fontId;
 fontSelect.addEventListener('change', () => useFont(fontSelect.value as FontId));
 

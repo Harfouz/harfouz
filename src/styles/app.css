@@ -1,13 +1,8 @@
-/* Bundled faces, used for the UI and for the inspect reference overlay. */
+/* Amiri is the interface's Arabic face. Every bundled font is also registered
+   from JavaScript when it loads (see core/fonts.ts). */
 @font-face {
   font-family: 'Harfouz Amiri';
   src: url('/fonts/amiri/Amiri-Regular.ttf') format('truetype');
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Harfouz Noto Naskh';
-  src: url('/fonts/noto-naskh-arabic/NotoNaskhArabic-Variable.ttf') format('truetype');
-  font-weight: 400 700;
   font-display: swap;
 }
 

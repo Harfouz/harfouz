@@ -90,26 +90,37 @@ describe.each(fonts)('junctions with $name', (font) => {
         frame(letter, 0, (i % 2 ? 0.6 : -0.5) * (i + 1) * 0.5, i % 2 ? 0.3 : -0.2, new Vector3(0, i * 120, i * -150)),
       ]),
     );
-    const geometries = new Map(
-      letters.map(({ letter, shapes }) => {
-        const g = new ExtrudeGeometry(shapes, { depth: 200, bevelEnabled: false, curveSegments: 6 });
-        g.translate(0, 0, -100);
-        deformGeometry(g, letter, moved, found, 260);
-        return [letter, g.getAttribute('position')];
-      }),
-    );
-    for (const j of found) {
-      const a = geometries.get(j.a)!;
-      const b = geometries.get(j.b)!;
-      // Closest pair of vertices between the two letters.
+    const build = (move: boolean) =>
+      new Map(
+        letters.map(({ letter, shapes }) => {
+          const g = new ExtrudeGeometry(shapes, { depth: 200, bevelEnabled: false, curveSegments: 6 });
+          g.translate(0, 0, -100);
+          if (move) deformGeometry(g, letter, moved, found, 260);
+          return [letter, g.getAttribute('position')];
+        }),
+      );
+    // Closest pair of vertices between two letters.
+    const closest = (geometries: ReturnType<typeof build>, a: number, b: number) => {
+      const pa = geometries.get(a)!;
+      const pb = geometries.get(b)!;
       let best = Infinity;
       const va = new Vector3();
       const vb = new Vector3();
-      for (let i = 0; i < a.count; i++) {
-        va.fromBufferAttribute(a, i);
-        for (let k = 0; k < b.count; k++) best = Math.min(best, va.distanceTo(vb.fromBufferAttribute(b, k)));
+      for (let i = 0; i < pa.count; i++) {
+        va.fromBufferAttribute(pa, i);
+        for (let k = 0; k < pb.count; k++) best = Math.min(best, va.distanceTo(vb.fromBufferAttribute(pb, k)));
       }
-      expect(best, `letters ${j.a} and ${j.b} came apart`).toBeLessThan(font.unitsPerEm * 0.03);
+      return best;
+    };
+    const still = build(false);
+    const after = build(true);
+    for (const j of found) {
+      // Some fonts make letters touch, others overlap them a little (Reem
+      // Kufi): compare with the letters at rest. Moving must not open a gap.
+      const before = closest(still, j.a, j.b);
+      expect(closest(after, j.a, j.b), `letters ${j.a} and ${j.b} came apart`).toBeLessThan(
+        before + font.unitsPerEm * 0.02,
+      );
     }
   });
 });

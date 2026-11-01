@@ -68,22 +68,24 @@ function toPath<T extends Path>(target: T, contour: PathCommand[]): T {
 
 /**
  * Turn glyph outlines into Three.js shapes with holes (the counters of
- * letters like ه, م, ف). A contour is a hole when it sits inside an odd
- * number of other contours; it is attached to the smallest one around it.
- * This does not rely on contour direction, so it works whatever the font's
- * winding convention.
+ * letters like ه, م, ف).
+ *
+ * Fonts draw outer contours in one direction and holes in the other. The
+ * largest contour is always an outer one, so it tells us which direction
+ * means "outer" for this glyph; contours turning the other way are holes,
+ * attached to the smallest outer contour around them. This also works for
+ * fonts that build letters from overlapping pieces.
  */
 export function outlinesToShapes(commands: PathCommand[], unitsPerEm: number): Shape[] {
   const contours = splitContours(commands);
+  if (!contours.length) return [];
   const step = unitsPerEm / 60;
   const polys = contours.map((c) => polygonOf(c, step));
-  const areas = polys.map((p) => Math.abs(area(p)));
-
-  const parents = polys.map((poly, i) => {
-    const probe = poly[0];
-    return polys.map((_, j) => j).filter((j) => j !== i && areas[j] > areas[i] && contains(polys[j], probe));
-  });
-  const isHole = parents.map((p) => p.length % 2 === 1);
+  const signed = polys.map(area);
+  const areas = signed.map(Math.abs);
+  const largest = areas.indexOf(Math.max(...areas));
+  const outerSign = Math.sign(signed[largest]) || 1;
+  const isHole = signed.map((a) => Math.sign(a) === -outerSign);
 
   const shapes = new Map<number, Shape>();
   contours.forEach((contour, i) => {
@@ -91,7 +93,8 @@ export function outlinesToShapes(commands: PathCommand[], unitsPerEm: number): S
   });
   contours.forEach((contour, i) => {
     if (!isHole[i]) return;
-    const outers = parents[i].filter((j) => shapes.has(j));
+    const probe = polys[i][0];
+    const outers = [...shapes.keys()].filter((j) => areas[j] > areas[i] && contains(polys[j], probe));
     if (!outers.length) return;
     const parent = outers.reduce((a, b) => (areas[a] < areas[b] ? a : b));
     shapes.get(parent)!.holes.push(toPath(new Path(), contour));

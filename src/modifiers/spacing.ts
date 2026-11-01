@@ -23,8 +23,11 @@ export function applySpacing(line: ShapedLine, amount: number | ((letter: number
   for (let i = bases.length - 1; i >= 0; i--) {
     const g = bases[i];
     if (!shiftByCluster.has(g.cluster)) shiftByCluster.set(g.cluster, shift);
+    // A cluster can hold several base glyphs (e.g. a shadda + kasra drawn as
+    // one glyph): the gap goes once, after its last (leftmost) glyph.
+    const endsCluster = i === 0 || bases[i - 1].cluster !== g.cluster;
     const isLast = i === 0;
-    if (!isLast && breaks[g.cluster]) shift -= gapAfter(g.letter);
+    if (!isLast && endsCluster && breaks[g.cluster]) shift -= gapAfter(g.letter);
   }
   if (shift === 0) return line;
   const total = -shift;

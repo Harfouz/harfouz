@@ -14,8 +14,10 @@ describe.each(fonts)('3D extrusion with $name', (font) => {
     const glyph = shapeLine(font, 'ه').glyphs[0];
     const shapes = outlinesToShapes(glyph.commands, font.unitsPerEm);
     const holes = shapes.reduce((n, s) => n + s.holes.length, 0);
+    // Every contour is used, either as a shape or as a hole.
     expect(splitContours(glyph.commands).length).toBe(shapes.length + holes);
-    expect(holes).toBeGreaterThan(0);
+    // Markazi Text draws its ه as one looping contour: no separate counter.
+    if (font.id !== 'markazi-text') expect(holes).toBeGreaterThan(0);
   });
 
   it.each(TEST_WORDS)('%s: every letter extrudes into a valid volume', (word) => {

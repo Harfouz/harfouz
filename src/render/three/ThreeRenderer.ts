@@ -18,7 +18,6 @@ import {
   Raycaster,
   Scene,
   ShadowMaterial,
-  Sphere,
   SRGBColorSpace,
   Vector2,
   Vector3,
@@ -305,17 +304,16 @@ export class ThreeRenderer implements Renderer {
   }
 
   private frame(box: Box3) {
-    const sphere = box.getBoundingSphere(new Sphere());
-    // Fit the bounding sphere in whichever field of view is narrower.
+    const center = box.getCenter(new Vector3());
+    const size = box.getSize(new Vector3());
+    // Distance at which the word's width fits the horizontal field of view
+    // and its height the vertical one; keep the larger, plus a margin.
     const vHalf = (this.camera.fov * Math.PI) / 360;
     const hHalf = Math.atan(Math.tan(vHalf) * this.camera.aspect);
-    // The sphere is generous for a wide word seen in a wide view, so come a bit
-    // closer than a strict fit; in a narrow (portrait) view the width is what
-    // matters, so keep the strict fit.
-    const tightness = hHalf < vHalf ? 1 : 0.82;
-    const distance = (sphere.radius / Math.sin(Math.min(vHalf, hHalf))) * tightness;
-    this.controls.target.copy(sphere.center);
-    this.camera.position.copy(sphere.center).addScaledVector(DEFAULT_VIEW, distance);
+    const distance =
+      Math.max(size.x / 2 / Math.tan(hHalf), size.y / 2 / Math.tan(vHalf)) * 1.15 + size.z / 2;
+    this.controls.target.copy(center);
+    this.camera.position.copy(center).addScaledVector(DEFAULT_VIEW, distance);
     this.camera.near = distance / 100;
     this.camera.far = distance * 20;
     this.camera.updateProjectionMatrix();
