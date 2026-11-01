@@ -1,0 +1,116 @@
+# Harfouz · حرفوز
+
+**An open-source playground for parametric Arabic typography.**
+Type a word or a sentence in Arabic, then shape it, colour it, put it in 3D and animate it, with sliders. Export the result as an image, a vector file, a 3D model or a video.
+
+Harfouz is made for designers, animators and type lovers. Its one rule: **the Arabic must stay correct.** Letters take their proper joined forms, ligatures and diacritics are placed by a real shaping engine, and every deformation is applied *after* shaping, so connected letters stay connected.
+
+---
+
+## What you can do
+
+**Write**
+- Type in Arabic with any keyboard: an on-screen Arabic keyboard (with all the harakat), or your own keys typing Arabic by position (Q → ض, A → ش…), whatever your layout.
+- 12 open-source typefaces in five styles: Naskh, Kufi, Ruqaa, Sans and Display.
+
+**Shape**: weight, slant, kashida (real tatweel insertion, reshaped, never splitting lam-alef), width, spacing that never breaks a join, and organic distortion.
+
+**Colour and material**: solid, gradient along the word, or one colour per letter from curated palettes. Six materials: satin, clay, paper grain, metal, glass and outline only. In 2D they become relief, grain and outline looks.
+
+**Space (3D)**: extruded letters with depth and bevel, in a lit scene with soft shadows and an orbit camera. Stagger, twist, spin, and per-letter push, lift, turn and tilt. **Connected letters stay attached**: the joining stroke bends and stretches instead of breaking.
+
+**Every setting works for the whole word or for a single letter.** Click a letter to give it its own values.
+
+**Motion**: any slider can move (sine, triangle, bounce, ramp or organic noise), with a delay between letters to make ripples. Every motion loops seamlessly. Ready-made presets: wave, hop, breathe, ribbon, turntable, liquid, kashida stretch.
+
+**Export**
+
+| Images | Animations |
+|---|---|
+| PNG, WebP (transparent background possible), JPG | MP4, WebM |
+| SVG, vector (2D view) | Animated GIF |
+| GLB 3D model with materials (3D view) | ZIP of PNG frames with transparency |
+
+Animations are rendered frame by frame at exact moments of the loop, so they never drop frames.
+
+---
+
+## Getting started
+
+You need [Node.js](https://nodejs.org) **20.19 or later** (22 LTS recommended).
+
+```bash
+git clone <this repository>
+cd harfouz
+npm install
+npm run dev
+```
+
+Then open **http://localhost:5173**.
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Starts the app with live reload |
+| `npm test` | Runs the test suite |
+| `npm run build` | Type-checks and builds a static site into `dist/` |
+| `npm run preview` | Serves the built site locally |
+
+The built site is fully static: `dist/` can be hosted anywhere (GitHub Pages, Netlify, any web server).
+
+### Browser support
+
+Harfouz works in recent versions of Chrome, Edge, Firefox and Safari. MP4 and WebM export use the browser's own video encoder (WebCodecs). Where a format isn't supported, the export menu says so. The PNG sequence works everywhere.
+
+---
+
+## How it works
+
+Everything flows through one pipeline. Each stage knows nothing about the next, which is what lets the same word be drawn as flat SVG or as 3D volumes.
+
+```
+text ─▶ kashida ─▶ shaping ─▶ layout modifiers ─▶ geometry modifiers ─▶ renderer
+        (tatweels)  HarfBuzz   width, spacing      slant, distortion      SVG (2D)
+                                                                          three.js (3D)
+```
+
+1. **Kashida** (`src/core/kashida.ts`) inserts tatweel characters between letters that connect, before shaping, so the font draws real elongations.
+2. **Shaping** (`src/core/shaping.ts`): [HarfBuzz](https://harfbuzz.github.io) picks each letter's contextual form, applies ligatures and positions diacritics. Glyph outlines come from [opentype.js](https://opentype.js.org).
+3. **Layout modifiers** (`src/modifiers/`) change positions letter by letter. Spacing only opens gaps where letters are *not* joined (`src/core/joining.ts` knows the Arabic joining rules).
+4. **Geometry modifiers** change the outlines themselves: shear for slant, and a seeded Perlin noise field for distortion, sampled in line space so joins move together.
+5. **Renderers** (`src/render/`) follow the same `Renderer` interface:
+   - `svg/SvgRenderer.ts` draws paths, with SVG filters for relief, grain and shadows;
+   - `three/ThreeRenderer.ts` extrudes each letter. `three/deform.ts` keeps connected letters attached: it finds where two letters meet, blends their placements around that point, and keeps the rest of each letter rigid.
+
+Parameters are described once in `src/params/schema.ts`. The panel, per-letter overrides (`params/state.ts`) and animation (`params/animation.ts`) are all built from that list.
+
+### Project layout
+
+```
+public/fonts/        The 12 typefaces, each with its OFL licence
+src/core/            Fonts, shaping, Arabic joining rules, kashida
+src/modifiers/       Width, spacing, slant, distortion
+src/params/          Parameter schema, per-letter state, animation
+src/render/          SVG and three.js renderers, colours and materials
+src/export/          Export formats and encoders
+src/ui/              Sliders, Arabic keyboard
+src/main.ts          Wires everything together
+tests/               Vitest suite (shaping, joins, 3D, animation, export…)
+```
+
+### Tests
+
+The test suite runs every check against **all bundled typefaces** with words chosen to stress Arabic shaping: lam-alef, stacked diacritics (shadda + kasra), chains of teeth (مستشفى), vertical stacks (محمد), explicit kashida. Among other things, it checks that no glyph is missing, that diacritics stay on their letter, that spacing never opens a gap inside a join, and that connected letters still touch in 3D after strong moves.
+
+---
+
+## Contributing
+
+Contributions are welcome: code, typefaces, materials, motion presets, translations of the interface, bug reports. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+## Licence
+
+- **Code**: [MIT](LICENSE).
+- **Typefaces**: [SIL Open Font License 1.1](https://openfontlicense.org), each in its own folder under `public/fonts/` with its licence file.
+- **Libraries**: see [CREDITS.md](CREDITS.md).
+
+Harfouz (حرفوز) plays on *ḥarf* (حرف), "letter".
