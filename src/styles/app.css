@@ -64,7 +64,7 @@ body {
 /* ── Top bar ───────────────────────────────────────────── */
 .topbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 14px 24px;
@@ -100,9 +100,42 @@ body {
   border: 1px solid var(--line);
   color: var(--ink);
 }
+.view { position: absolute; inset: 0; }
+.view[hidden] { display: none; }
 /* Absolutely positioned so the drawing never pushes the layout around;
    the viewBox keeps it centred and proportional inside this box. */
 .artboard svg { position: absolute; inset: 6% 4% 10%; width: 92%; height: 84%; }
+.three-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.three-canvas:active { cursor: grabbing; }
+
+/* ── 3D / 2D switch ────────────────────────────────────── */
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented span {
+  display: block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.segmented input:checked + span { background: var(--ink); color: var(--sheet); }
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); }
+
+.button {
+  justify-self: start;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+.button:hover { border-color: var(--ink-soft); }
 
 .status {
   position: absolute;
@@ -149,7 +182,7 @@ body {
   border-radius: var(--radius);
   padding: 8px 10px;
 }
-.text-input { font-family: var(--font-ar); font-size: 24px; padding: 4px 12px 8px; }
+.text-input { font-family: var(--font-ar); font-size: 24px; height: 60px; padding: 10px 12px 4px; }
 .text-input:focus, .select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; direction: rtl; }
@@ -161,7 +194,7 @@ body {
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 2px 12px 5px;
+  padding: 6px 12px 5px;
   cursor: pointer;
 }
 .chip:hover { color: var(--ink); border-color: var(--ink-soft); }

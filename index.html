@@ -14,11 +14,18 @@
         <span class="brand__lat">Harfouz</span>
       </div>
       <p class="topbar__tag">parametric arabic type · v0.1</p>
+      <div class="segmented" role="radiogroup" aria-label="View mode">
+        <label><input type="radio" name="mode" value="3d" checked /><span>3D</span></label>
+        <label><input type="radio" name="mode" value="2d" /><span>2D</span></label>
+      </div>
     </header>
 
     <main class="layout">
       <section class="stage" aria-label="Artwork">
-        <div class="artboard" id="artboard"></div>
+        <div class="artboard" id="artboard">
+          <div class="view" id="view-3d"></div>
+          <div class="view" id="view-2d" hidden></div>
+        </div>
         <p class="status" id="status" role="status"></p>
       </section>
 
@@ -44,8 +51,17 @@
           <div class="controls" id="shape-controls"></div>
         </section>
 
-        <section class="panel__section">
-          <h2 class="panel__title"><span>00</span> View</h2>
+        <section class="panel__section" data-mode="3d">
+          <div class="panel__head">
+            <h2 class="panel__title"><span>03</span> Space</h2>
+            <button type="button" class="link-button" id="reset-space">Reset</button>
+          </div>
+          <div class="controls" id="space-controls"></div>
+          <button type="button" class="button" id="recenter">Recenter camera</button>
+        </section>
+
+        <section class="panel__section" data-mode="2d" hidden>
+          <h2 class="panel__title"><span>00</span> 2D view</h2>
           <label class="toggle"><input type="checkbox" id="guides" checked /> <span>Guides</span></label>
           <label class="toggle"><input type="checkbox" id="inspect" /> <span>Inspect shaping</span></label>
           <p class="hint">Inspect overlays the browser's own rendering in red: if the shapes match, shaping is correct.</p>

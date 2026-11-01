@@ -68,6 +68,30 @@ export interface ShapeParams {
   seed: number;
 }
 
+/** 3D-only parameters: how the letters sit in space. */
+export const SPACE_PARAMS = [
+  { kind: 'range', key: 'depth', label: 'Depth', min: 0, max: 1200, step: 5, default: 220, unit: '‰' },
+  {
+    kind: 'range', key: 'bevel', label: 'Bevel', min: 0, max: 40, step: 0.5, default: 8, unit: '‰',
+    hint: 'Rounds the front and back edges of the volume.',
+  },
+  {
+    kind: 'range', key: 'stagger', label: 'Stagger', min: -600, max: 600, step: 5, default: 0, unit: '‰',
+    hint: 'Moves each letter further back (or forward) in space.',
+  },
+  {
+    kind: 'range', key: 'twist', label: 'Twist', min: -90, max: 90, step: 1, default: 0, unit: '°',
+    hint: 'Turns each letter a little more than the previous one around its vertical axis.',
+  },
+] as const satisfies readonly ParamDef[];
+
+export interface SpaceParams {
+  depth: number;
+  bevel: number;
+  stagger: number;
+  twist: number;
+}
+
 export function defaultsOf<T>(defs: readonly ParamDef[]): T {
   return Object.fromEntries(defs.map((d) => [d.key, d.default])) as T;
 }

@@ -1,0 +1,231 @@
+import {
+  ACESFilmicToneMapping,
+  Box3,
+  Color,
+  DirectionalLight,
+  ExtrudeGeometry,
+  Group,
+  HemisphereLight,
+  Mesh,
+  MeshStandardMaterial,
+  PCFSoftShadowMap,
+  PerspectiveCamera,
+  PlaneGeometry,
+  PMREMGenerator,
+  Scene,
+  ShadowMaterial,
+  Sphere,
+  SRGBColorSpace,
+  Vector3,
+  WebGLRenderer,
+  type Shape,
+} from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import type { Composition } from '../../core/types';
+import type { Renderer, RenderInput } from '../Renderer';
+import { outlinesToShapes } from './contours';
+
+/** Where the camera looks from by default: a little to the left and above. */
+const DEFAULT_VIEW = new Vector3(-0.38, 0.22, 1).normalize();
+
+/** Glyph shapes grouped by the letter they belong to, in reading order. */
+export function shapesByLetter(comp: Composition): { letter: number; shapes: Shape[] }[] {
+  const byLetter = new Map<number, Shape[]>();
+  for (const g of comp.glyphs) {
+    const shapes = outlinesToShapes(g.commands, comp.unitsPerEm);
+    byLetter.set(g.letter, [...(byLetter.get(g.letter) ?? []), ...shapes]);
+  }
+  return [...byLetter.entries()].sort(([a], [b]) => a - b).map(([letter, shapes]) => ({ letter, shapes }));
+}
+
+/**
+ * Draws the composition as extruded volumes in a 3D scene.
+ *
+ * Units: the whole word is scaled so that 1 em = 1 world unit.
+ * Each letter is its own mesh, so it can later get its own material,
+ * colour or motion.
+ */
+export class ThreeRenderer implements Renderer {
+  private renderer = new WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  private scene = new Scene();
+  private camera = new PerspectiveCamera(32, 1, 0.01, 100);
+  private controls = new OrbitControls(this.camera, this.renderer.domElement);
+  private word = new Group();
+  private material = new MeshStandardMaterial({ roughness: 0.48, metalness: 0 });
+  private ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: 0.18 }));
+  private key = new DirectionalLight(0xffffff, 2.4);
+  private container?: HTMLElement;
+  private resizeObserver = new ResizeObserver(() => this.resize());
+  private needsFraming = true;
+
+  constructor() {
+    const r = this.renderer;
+    r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    r.outputColorSpace = SRGBColorSpace;
+    r.toneMapping = ACESFilmicToneMapping;
+    r.shadowMap.enabled = true;
+    r.shadowMap.type = PCFSoftShadowMap;
+    r.setClearColor(0x000000, 0);
+    r.domElement.className = 'three-canvas';
+
+    // Soft studio reflections, useful for the material presets.
+    const pmrem = new PMREMGenerator(r);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.55;
+
+    this.scene.add(new HemisphereLight(0xffffff, 0x444444, 0.6));
+    this.key.position.set(-2, 4, 3);
+    this.key.castShadow = true;
+    this.key.shadow.mapSize.set(2048, 2048);
+    this.key.shadow.bias = -0.0005;
+    this.key.shadow.radius = 6;
+    this.scene.add(this.key, this.key.target);
+
+    this.ground.rotation.x = -Math.PI / 2;
+    this.ground.receiveShadow = true;
+    this.scene.add(this.ground, this.word);
+
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.08;
+    this.controls.minDistance = 0.3;
+    this.controls.maxDistance = 30;
+  }
+
+  mount(container: HTMLElement) {
+    this.container = container;
+    container.appendChild(this.renderer.domElement);
+    this.resizeObserver.observe(container);
+    this.resize();
+    this.renderer.setAnimationLoop(() => {
+      this.controls.update();
+      this.renderer.render(this.scene, this.camera);
+    });
+  }
+
+  /** Re-centre the camera on the word at the next render (new text or font). */
+  frameNextRender() {
+    this.needsFraming = true;
+  }
+
+  render({ composition: comp, weight, space }: RenderInput) {
+    const em = comp.unitsPerEm;
+    const perMille = em / 1000;
+    const depth = Math.max(1, space.depth * perMille);
+    const bevel = Math.min(space.bevel * perMille, depth / 2);
+
+    this.material.color = new Color(getComputedStyle(this.container ?? document.body).color);
+    this.clearWord();
+
+    const letters = shapesByLetter(comp);
+    const twist = (space.twist * Math.PI) / 180;
+    const middle = (letters.length - 1) / 2;
+    letters.forEach(({ shapes }, index) => {
+      if (!shapes.length) return;
+      // Measured from the middle letter, so stagger and twist keep the word centred.
+      const rank = index - middle;
+      const geometry = new ExtrudeGeometry(shapes, {
+        depth,
+        curveSegments: 10,
+        bevelEnabled: bevel > 0 || weight !== 0,
+        bevelThickness: bevel,
+        bevelSize: bevel,
+        // Shrink the cap by the bevel so the silhouette keeps its drawn size,
+        // then grow or shrink it by the weight.
+        bevelOffset: weight - bevel,
+        bevelSegments: bevel > 0 ? 4 : 1,
+      });
+      geometry.computeBoundingBox();
+      const center = geometry.boundingBox!.getCenter(new Vector3());
+      // Pivot every letter around its own centre so twist turns it in place.
+      geometry.translate(-center.x, -center.y, -center.z);
+
+      const mesh = new Mesh(geometry, this.material);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.position.set(center.x, center.y, -rank * space.stagger * perMille);
+      mesh.rotation.y = rank * twist;
+      this.word.add(mesh);
+    });
+
+    // Centre the word on the origin, 1 em = 1 unit.
+    this.word.scale.setScalar(1 / em);
+    this.word.position.set(-comp.width / 2 / em, -(comp.ascender + comp.descender) / 2 / em, 0);
+    this.word.updateMatrixWorld(true);
+
+    const box = new Box3().setFromObject(this.word);
+    if (box.isEmpty()) return;
+    this.placeGroundAndLight(box);
+    if (this.needsFraming) {
+      this.frame(box);
+      this.needsFraming = false;
+    }
+  }
+
+  private placeGroundAndLight(box: Box3) {
+    const size = box.getSize(new Vector3());
+    const center = box.getCenter(new Vector3());
+    const extent = Math.max(size.x, size.z, 1) * 4;
+    this.ground.position.set(center.x, box.min.y - 0.002, center.z);
+    this.ground.scale.set(extent, extent, 1);
+
+    this.key.target.position.copy(center);
+    this.key.position.copy(center).add(new Vector3(-1.5, 3, 2.5));
+    const cam = this.key.shadow.camera;
+    const r = Math.max(size.x, size.y, size.z) * 1.2;
+    cam.left = -r;
+    cam.right = r;
+    cam.top = r;
+    cam.bottom = -r;
+    cam.near = 0.1;
+    cam.far = 10 + r * 4;
+    cam.updateProjectionMatrix();
+  }
+
+  private frame(box: Box3) {
+    const sphere = box.getBoundingSphere(new Sphere());
+    // Fit the bounding sphere in whichever field of view is narrower.
+    const vHalf = (this.camera.fov * Math.PI) / 360;
+    const hHalf = Math.atan(Math.tan(vHalf) * this.camera.aspect);
+    // The sphere is generous for a wide word seen in a wide view, so come a bit
+    // closer than a strict fit; in a narrow (portrait) view the width is what
+    // matters, so keep the strict fit.
+    const tightness = hHalf < vHalf ? 1 : 0.82;
+    const distance = (sphere.radius / Math.sin(Math.min(vHalf, hHalf))) * tightness;
+    this.controls.target.copy(sphere.center);
+    this.camera.position.copy(sphere.center).addScaledVector(DEFAULT_VIEW, distance);
+    this.camera.near = distance / 100;
+    this.camera.far = distance * 20;
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
+  }
+
+  private resize() {
+    if (!this.container) return;
+    const { clientWidth: w, clientHeight: h } = this.container;
+    if (!w || !h) return;
+    this.renderer.setSize(w, h, false);
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+  }
+
+  private clearWord() {
+    for (const child of [...this.word.children]) {
+      (child as Mesh).geometry.dispose();
+      this.word.remove(child);
+    }
+  }
+
+  /** The canvas, for PNG export later. */
+  get canvas() {
+    return this.renderer.domElement;
+  }
+
+  destroy() {
+    this.renderer.setAnimationLoop(null);
+    this.resizeObserver.disconnect();
+    this.clearWord();
+    this.renderer.dispose();
+    this.renderer.domElement.remove();
+  }
+}
