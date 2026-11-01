@@ -1,0 +1,25 @@
+{
+  "name": "harfouz",
+  "version": "0.1.0",
+  "description": "Parametric Arabic typography playground: shape Arabic text correctly, then deform, color and animate it.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "harfbuzzjs": "^1.6.4",
+    "opentype.js": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/opentype.js": "^1.3.10",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  },
+  "private": true
+}

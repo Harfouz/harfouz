@@ -1,0 +1,182 @@
+/* Bundled faces, used for the UI and for the inspect reference overlay. */
+@font-face {
+  font-family: 'Harfouz Amiri';
+  src: url('/fonts/amiri/Amiri-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Harfouz Noto Naskh';
+  src: url('/fonts/noto-naskh-arabic/NotoNaskhArabic-Variable.ttf') format('truetype');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+/* Design tokens. Ink on paper, with a vermilion accent borrowed from the
+   red rubrication of Arabic manuscripts. */
+:root {
+  --paper: #efe9de;
+  --sheet: #f8f4ec;
+  --ink: #1a1612;
+  --ink-soft: #4a4238;
+  --muted: #8b8274;
+  --line: rgb(26 22 18 / 0.12);
+  --accent: #c0412b;
+  --guide: rgb(192 65 43 / 0.35);
+
+  --font-ui: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-ar: 'Harfouz Amiri', serif;
+
+  --radius: 2px;
+  --panel-w: 320px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14110e;
+    --sheet: #1d1915;
+    --ink: #efe7da;
+    --ink-soft: #c4b9a8;
+    --muted: #8a8072;
+    --line: rgb(239 231 218 / 0.12);
+    --accent: #e3603f;
+    --guide: rgb(227 96 63 / 0.4);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+/* ── Top bar ───────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.brand { display: flex; align-items: baseline; gap: 12px; }
+.brand__ar { font-family: var(--font-ar); font-size: 28px; line-height: 1; color: var(--accent); }
+.brand__lat { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; }
+.topbar__tag { margin: 0; font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+
+/* ── Layout ────────────────────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr var(--panel-w);
+  min-height: 0;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  min-height: 0;
+}
+
+.artboard {
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.artboard svg { width: 92%; height: 82%; overflow: visible; }
+
+.status {
+  position: absolute;
+  inset-inline-start: 44px;
+  bottom: 40px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Guides and inspector (SVG) ────────────────────────── */
+.guide { stroke: var(--guide); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.guide--ascender, .guide--descender { stroke-dasharray: 2 4; }
+.inspect__box { fill: none; stroke: var(--muted); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.inspect__mark { fill: var(--accent); }
+.inspect__reference { fill: var(--accent); opacity: 0.45; }
+
+/* ── Panel ─────────────────────────────────────────────── */
+.panel {
+  border-inline-start: 1px solid var(--line);
+  overflow-y: auto;
+}
+.panel__section { padding: 20px 24px; border-bottom: 1px solid var(--line); display: grid; gap: 14px; }
+.panel__title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.panel__title span { color: var(--accent); margin-inline-end: 6px; }
+
+.field { display: grid; gap: 6px; }
+.field__label { font-size: 12px; color: var(--ink-soft); }
+
+.text-input, .select {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+.text-input { font-family: var(--font-ar); font-size: 24px; padding: 4px 12px 8px; }
+.text-input:focus, .select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; direction: rtl; }
+.chip {
+  font-family: var(--font-ar);
+  font-size: 17px;
+  line-height: 1.2;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 12px 5px;
+  cursor: pointer;
+}
+.chip:hover { color: var(--ink); border-color: var(--ink-soft); }
+.chip[aria-pressed='true'] { color: var(--sheet); background: var(--ink); border-color: var(--ink); }
+
+.toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.toggle input { accent-color: var(--accent); }
+.hint { margin: 0; font-size: 12px; color: var(--muted); }
+
+/* ── Small screens: stage on top, controls below ───────── */
+@media (max-width: 760px) {
+  body { height: auto; }
+  .topbar { padding: 12px 16px; }
+  .topbar__tag { display: none; }
+  .layout { grid-template-columns: 1fr; }
+  .stage { padding: 16px; height: 52vh; }
+  .status { inset-inline-start: 28px; bottom: 24px; }
+  .panel { border-inline-start: 0; border-top: 1px solid var(--line); }
+  .panel__section { padding: 18px 16px; }
+}

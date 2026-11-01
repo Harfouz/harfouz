@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Harfouz — an open-source parametric Arabic typography playground." />
+    <title>Harfouz</title>
+    <link rel="stylesheet" href="/src/styles/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__ar" lang="ar" dir="rtl">حرفوز</span>
+        <span class="brand__lat">Harfouz</span>
+      </div>
+      <p class="topbar__tag">parametric arabic type · v0.1</p>
+    </header>
+
+    <main class="layout">
+      <section class="stage" aria-label="Artwork">
+        <div class="artboard" id="artboard"></div>
+        <p class="status" id="status" role="status"></p>
+      </section>
+
+      <aside class="panel" aria-label="Controls">
+        <section class="panel__section">
+          <h2 class="panel__title"><span>01</span> Text</h2>
+          <label class="field">
+            <span class="field__label">Word or phrase</span>
+            <input id="text" class="text-input" type="text" dir="rtl" lang="ar" autocomplete="off" spellcheck="false" />
+          </label>
+          <div class="chips" id="samples" aria-label="Sample words"></div>
+          <label class="field">
+            <span class="field__label">Typeface</span>
+            <select id="font" class="select"></select>
+          </label>
+        </section>
+
+        <section class="panel__section">
+          <h2 class="panel__title"><span>00</span> View</h2>
+          <label class="toggle"><input type="checkbox" id="guides" checked /> <span>Guides</span></label>
+          <label class="toggle"><input type="checkbox" id="inspect" /> <span>Inspect shaping</span></label>
+          <p class="hint">Inspect overlays the browser's own rendering in red: if the shapes match, shaping is correct.</p>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
