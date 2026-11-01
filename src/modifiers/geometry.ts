@@ -13,6 +13,7 @@ export function toComposition(line: ShapedLine): Composition {
     descender: line.descender,
     glyphs: line.glyphs.map((g) => ({
       letter: g.letter,
+      base: g.base,
       cluster: g.cluster,
       isMark: g.isMark,
       x: g.x,

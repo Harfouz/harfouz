@@ -85,12 +85,21 @@ function clampFor(def: RangeParam, value: number): number {
 export class AnimationState {
   private word = new Map<keyof Params, AnimConfig>();
   private letters = new Map<number, Map<keyof Params, AnimConfig>>();
+  /** Diacritic → the letter it sits on. */
+  private parents = new Map<number, number>();
 
-  /** The configuration in effect for a letter (its own, else the word's). */
+  setParents(parents: Map<number, number>) {
+    this.parents = parents;
+  }
+
+  /** The configuration in effect for a letter or diacritic (its own, else its letter's, else the word's). */
   config(letter: number | null, key: keyof Params): AnimConfig | undefined {
     if (letter !== null) {
       const own = this.letters.get(letter)?.get(key);
       if (own) return own;
+      const parent = this.parents.get(letter);
+      const inherited = parent === undefined ? undefined : this.letters.get(parent)?.get(key);
+      if (inherited) return inherited;
     }
     return this.word.get(key);
   }

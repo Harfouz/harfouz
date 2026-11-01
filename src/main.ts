@@ -81,7 +81,10 @@ function update(forExport = false) {
   if (!font) return;
   try {
     const letters = lettersOf(state.text);
-    orderOf = new Map(letters.map((l, order) => [l.index, order]));
+    const structure = structureOf(letters);
+    params.setParents(structure.parents);
+    anim.setParents(structure.parents);
+    orderOf = structure.order;
     const resolved = new Map(letters.map((l) => [l.index, resolveNow(l.index)]));
     const resolve = (i: number) => resolved.get(i) ?? resolveNow(i);
     const word = resolveNow(-1);
@@ -98,6 +101,7 @@ function update(forExport = false) {
       composition,
       word,
       letter: resolve,
+      order: (i) => orderOf.get(i) ?? 0,
       selected: forExport ? null : state.selected,
       guides: forExport ? false : state.guides,
       inspect: forExport ? false : state.inspect,
@@ -143,20 +147,57 @@ function setMode(mode: Mode) {
 
 // ── Letter selection ─────────────────────────────────────
 
-/** Base letters of the text (diacritics are edited with their letter). */
-function lettersOf(text: string): { index: number; label: string }[] {
-  const letters: { index: number; label: string }[] = [];
+/** A letter, or a diacritic on a letter, that can be edited on its own. */
+interface Editable {
+  index: number;
+  label: string;
+  /** For a diacritic, the index of its letter. */
+  base?: number;
+}
+
+/**
+ * Letters and diacritics of the text, in reading order. Diacritics come
+ * right after their letter. When the font draws several diacritics as one
+ * glyph (shadda + kasra), they are listed, and edited, together.
+ */
+function lettersOf(text: string): Editable[] {
+  const drawn = new Set(cached?.composition.glyphs.map((g) => g.letter));
+  const items: Editable[] = [];
+  let base: number | undefined;
   for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i);
-    if (/\s/.test(text[i])) continue;
-    if (isMark(code) && letters.length) {
-      letters[letters.length - 1].label += text[i];
+    if (/\s/.test(text[i])) {
+      base = undefined;
       continue;
     }
-    letters.push({ index: i, label: text[i] });
+    if (isMark(text.charCodeAt(i)) && base !== undefined) {
+      const previous = items[items.length - 1];
+      if (cached && !drawn.has(i) && previous.base !== undefined) previous.label += text[i];
+      else items.push({ index: i, label: text[i], base });
+      continue;
+    }
+    base = i;
+    items.push({ index: i, label: text[i] });
   }
-  return letters;
+  return items;
 }
+
+/** Diacritic → letter links, and reading order (diacritics share their letter's). */
+function structureOf(items: Editable[]) {
+  const parents = new Map<number, number>();
+  const order = new Map<number, number>();
+  let n = -1;
+  for (const item of items) {
+    if (item.base === undefined) order.set(item.index, ++n);
+    else {
+      parents.set(item.index, item.base);
+      order.set(item.index, Math.max(0, n));
+    }
+  }
+  return { parents, order };
+}
+
+/** Show a diacritic on a dotted circle, as in type specimens. */
+const markLabel = (label: string) => `◌${label}`;
 
 const refreshers: (() => void)[] = [];
 
@@ -169,20 +210,26 @@ function select(letter: number | null) {
 function refreshScope() {
   const letters = lettersOf(state.text);
   const strip = $('letters');
-  strip.replaceChildren(
-    ...letters.map(({ index, label }) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'letter-chip';
-      chip.lang = 'ar';
-      chip.textContent = label;
-      chip.title = `Edit this letter (${index + 1})`;
-      chip.setAttribute('aria-pressed', String(state.selected === index));
-      chip.classList.toggle('has-overrides', params.hasOverrides(index));
-      chip.addEventListener('click', () => select(state.selected === index ? null : index));
-      return chip;
-    }),
-  );
+  // One group per letter: the letter, then its diacritics as smaller chips.
+  const groups: HTMLElement[] = [];
+  for (const { index, label, base } of letters) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = base === undefined ? 'letter-chip' : 'letter-chip letter-chip--mark';
+    chip.lang = 'ar';
+    chip.textContent = base === undefined ? label : markLabel(label);
+    chip.title = base === undefined ? `Edit this letter` : `Edit this diacritic on its own`;
+    chip.setAttribute('aria-pressed', String(state.selected === index));
+    chip.classList.toggle('has-overrides', params.hasOverrides(index));
+    chip.addEventListener('click', () => select(state.selected === index ? null : index));
+    if (base === undefined) {
+      const group = document.createElement('div');
+      group.className = 'letter-group';
+      groups.push(group);
+    }
+    groups[groups.length - 1]?.appendChild(chip);
+  }
+  strip.replaceChildren(...groups);
   $('pick-word').setAttribute('aria-pressed', String(state.selected === null));
 
   const target = $('scope-target');
@@ -192,8 +239,18 @@ function refreshScope() {
     const ar = document.createElement('span');
     ar.className = 'ar';
     ar.lang = 'ar';
-    ar.textContent = current.label;
-    target.append('Letter ', ar);
+    if (current.base === undefined) {
+      ar.textContent = current.label;
+      target.append('Letter ', ar);
+    } else {
+      // "Diacritic ◌َ on ك"
+      const on = document.createElement('span');
+      on.className = 'ar';
+      on.lang = 'ar';
+      on.textContent = state.text[current.base];
+      ar.textContent = markLabel(current.label);
+      target.append('Diacritic ', ar, ' on ', on);
+    }
   } else {
     target.textContent = 'Whole word';
   }
@@ -575,8 +632,9 @@ function setText(text: string) {
   anim.retarget(state.text, text);
   state.text = text;
   if (state.selected !== null && !lettersOf(text).some((l) => l.index === state.selected)) state.selected = null;
-  refreshScope();
+  // Shape first: the letter bar needs to know how diacritics were drawn.
   updateAndFrame();
+  refreshScope();
 }
 
 textInput.value = state.text;

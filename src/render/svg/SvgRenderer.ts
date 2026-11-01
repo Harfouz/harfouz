@@ -50,7 +50,7 @@ export class SvgRenderer implements Renderer {
     });
   }
 
-  render({ composition: comp, word, letter, selected, guides, inspect, referenceFontFamily }: RenderInput) {
+  render({ composition: comp, word, letter, order, selected, guides, inspect, referenceFontFamily }: RenderInput) {
     const em = comp.unitsPerEm;
     const perMille = em / 1000;
     const weightOf = (index: number) => letter(index).weight * perMille;
@@ -97,7 +97,7 @@ export class SvgRenderer implements Renderer {
       let group = inner.get(g.letter);
       if (!group) {
         const p = letter(g.letter);
-        const fill = letterFill(word, p, letters.size, inkColor);
+        const fill = letterFill(word, p, order(g.letter), inkColor);
         const paint = fill === 'gradient' ? `url(#${GRADIENT_ID})` : fill;
         const outer = el('g', { 'data-letter': g.letter, class: 'letter' });
         this.applyLook(outer, p.material, paint, em, defs);

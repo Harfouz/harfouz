@@ -33,7 +33,7 @@ import { inkOf, letterFill, resolveColor, textureOf } from '../look';
 import { HAIRY } from '../textures';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
-import { deformGeometry, findJunctions, letterSpans, type LetterFrame } from './deform';
+import { deformGeometry, findJunctions, frameMatrix, letterSpans, type LetterFrame } from './deform';
 import { furLayers, MaterialLibrary } from './materials';
 
 /** Where the camera looks from by default: a little to the left and above. */
@@ -163,7 +163,7 @@ export class ThreeRenderer implements Renderer {
     this.needsFraming = true;
   }
 
-  render({ composition: comp, word, letter, selected, geometryKey }: RenderInput) {
+  render({ composition: comp, word, letter, order: readingOrder, selected, geometryKey }: RenderInput) {
     const em = comp.unitsPerEm;
     const perMille = em / 1000;
     const rad = Math.PI / 180;
@@ -208,14 +208,14 @@ export class ThreeRenderer implements Renderer {
     // Each letter's own placement (a rigid transform).
     const spans = letterSpans(comp);
     const middle = (spans.length - 1) / 2;
-    const built = new Map<number, { geometry: BufferGeometry; order: number }>();
+    const built = new Map<number, BufferGeometry>();
     const frames = new Map<number, LetterFrame>();
     spans.forEach((span, order) => {
       const index = span.letter;
       const p = letter(index);
       const volume = this.volumes.get(index);
       const pivot = new Vector3((span.start + span.end) / 2, volume?.pivotY ?? (comp.ascender + comp.descender) / 2, 0);
-      if (volume) built.set(index, { geometry: volume.geometry.clone(), order });
+      if (volume) built.set(index, volume.geometry.clone());
       // Stagger and twist are measured from the middle letter so the word stays centred;
       // push, lift, turn and tilt are this letter's own placement.
       const rank = order - middle;
@@ -228,15 +228,39 @@ export class ThreeRenderer implements Renderer {
       });
     });
 
+    // Diacritics have their own volume. They move with their letter, plus
+    // their own extra placement (lift, push, turn, tilt) around their centre.
+    const baseOf = new Map(comp.glyphs.map((g) => [g.letter, g.base]));
+    for (const [index, volume] of this.volumes) {
+      if (frames.has(index)) continue;
+      const baseIndex = baseOf.get(index) ?? index;
+      const baseFrame = frames.get(baseIndex);
+      if (!baseFrame) continue;
+      const p = letter(index);
+      const pb = letter(baseIndex);
+      const geometry = volume.geometry.clone();
+      geometry.computeBoundingBox();
+      geometry.applyMatrix4(
+        frameMatrix({
+          pivot: geometry.boundingBox!.getCenter(new Vector3()),
+          offset: new Vector3(0, (p.lift - pb.lift) * perMille, (p.push - pb.push) * perMille),
+          turn: (p.turn - pb.turn) * rad,
+          tilt: (p.tilt - pb.tilt) * rad,
+        }),
+      );
+      frames.set(index, { ...baseFrame, letter: index });
+      built.set(index, geometry);
+    }
+
     // 2. Move each letter; around each junction with a connected neighbour the
     //    placements blend, so joins bend instead of breaking.
     const softness = word.joinSoftness * perMille;
     const junctions = word.joins === 'keep' ? this.junctionCache : [];
-    for (const [index, { geometry, order }] of built) {
+    for (const [index, geometry] of built) {
       const p = letter(index);
 
       // Colour first: the gradient follows the letter's place on the line.
-      const fill = letterFill(word, p, order, ink);
+      const fill = letterFill(word, p, readingOrder(index), ink);
       if (fill === 'gradient') paintGradient(geometry, 0, comp.width, gradient[0], gradient[1]);
       const color = fill === 'gradient' ? null : fill;
 

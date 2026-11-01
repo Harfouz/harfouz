@@ -38,6 +38,33 @@ describe('ParamState', () => {
   });
 });
 
+describe('diacritics', () => {
+  it('follow their letter, unless they have their own settings', () => {
+    const p = new ParamState();
+    // مُ : the damma (index 1) sits on the meem (index 0).
+    p.setParents(new Map([[1, 0]]));
+    p.set(0, 'color', '#ff0000');
+    expect(p.resolve(1).color).toBe('#ff0000');
+    p.set(1, 'color', '#0000ff');
+    expect(p.resolve(1).color).toBe('#0000ff');
+    expect(p.resolve(0).color).toBe('#ff0000');
+    // The word still reaches whatever neither of them overrides.
+    p.set(null, 'weight', 12);
+    expect(p.resolve(1).weight).toBe(12);
+  });
+
+  it('can be animated on their own, or follow their letter', async () => {
+    const { AnimationState, DEFAULT_ANIM } = await import('../src/params/animation');
+    const a = new AnimationState();
+    a.setParents(new Map([[1, 0]]));
+    a.set(0, 'lift', { ...DEFAULT_ANIM, amount: 100 });
+    expect(a.config(1, 'lift')?.amount).toBe(100);
+    a.set(1, 'lift', { ...DEFAULT_ANIM, amount: 300 });
+    expect(a.config(1, 'lift')?.amount).toBe(300);
+    expect(a.config(0, 'lift')?.amount).toBe(100);
+  });
+});
+
 describe('per-letter kashida', () => {
   it('elongates only the join after the chosen letter', () => {
     // Word value 0, letter 1 (ح) has 3.

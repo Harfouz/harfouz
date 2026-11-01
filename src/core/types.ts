@@ -29,6 +29,11 @@ export interface ShapedGlyph {
    * typed. Same as `cluster` unless kashidas were inserted before shaping.
    */
   letter: number;
+  /**
+   * For a diacritic, the letter it sits on; for anything else, `letter`.
+   * Diacritics follow their base letter unless given their own settings.
+   */
+  base: number;
   /** Origin of the glyph on the line, in font units. */
   x: number;
   y: number;
@@ -60,6 +65,8 @@ export interface ShapedLine {
  */
 export interface GlyphShape {
   letter: number;
+  /** The letter a diacritic sits on (or `letter` itself). */
+  base: number;
   cluster: number;
   isMark: boolean;
   /** Pen position and advance before geometric modifiers (used by the inspector). */

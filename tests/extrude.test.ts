@@ -42,9 +42,17 @@ describe.each(fonts)('3D extrusion with $name', (font) => {
     }
   });
 
-  it('keeps diacritics with their letter in 3D', () => {
-    // مُدَرِّسَة has 5 letters; marks must not become letters of their own.
-    const letters = shapesByLetter(buildComposition(font, 'مُدَرِّسَة', defaults));
-    expect(letters.length).toBe(5);
+  it('gives each diacritic its own volume, linked to its letter', () => {
+    const word = 'مُدَرِّسَة';
+    const comp = buildComposition(font, word, defaults);
+    const groups = shapesByLetter(comp).map((g) => g.letter);
+    // The five letters are there…
+    for (const i of [0, 2, 4, 7, 9]) expect(groups).toContain(i);
+    // …and every diacritic glyph sits on the letter just before it.
+    for (const g of comp.glyphs.filter((x) => x.letter !== x.base)) {
+      expect('ُ َ ِّ'.replace(/ /g, '')).toContain(word[g.letter]);
+      expect(g.base).toBeLessThan(g.letter);
+    }
+    expect(comp.glyphs.some((g) => g.letter !== g.base)).toBe(true);
   });
 });

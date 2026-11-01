@@ -7,16 +7,30 @@ type Value = number | string;
  *
  * A letter uses the word's value for every parameter it hasn't overridden,
  * so changing the word still affects that letter's other parameters.
- * Letters are identified by their index in the typed text.
+ * Diacritics work the same way, one level down: they follow their letter.
+ * Letters and diacritics are identified by their index in the typed text.
  */
 export class ParamState {
   word: Params = defaultsOf<Params>(ALL_PARAMS);
   private overrides = new Map<number, Partial<Record<keyof Params, Value>>>();
+  /** Diacritic → the letter it sits on. */
+  private parents = new Map<number, number>();
 
-  /** Effective values for one letter. */
+  /**
+   * Tell which letter each diacritic sits on. A diacritic uses its own
+   * values first, then its letter's, then the word's.
+   */
+  setParents(parents: Map<number, number>) {
+    this.parents = parents;
+  }
+
+  /** Effective values for one letter (or diacritic). */
   resolve(letter: number): Params {
     const own = this.overrides.get(letter);
-    return own ? ({ ...this.word, ...own } as Params) : this.word;
+    const parent = this.parents.get(letter);
+    const inherited = parent === undefined ? undefined : this.overrides.get(parent);
+    if (!own && !inherited) return this.word;
+    return { ...this.word, ...inherited, ...own } as Params;
   }
 
   get(letter: number | null, key: keyof Params): Value {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isMark } from '../src/core/joining';
 import { shapeLine } from '../src/core/shaping';
 import { fonts, TEST_WORDS } from './fixtures';
 
@@ -46,6 +47,17 @@ describe.each(fonts)('shaping with $name', (font) => {
     const plain = [shapeLine(font, 'ل').glyphs[0].glyphId, shapeLine(font, 'ا').glyphs[0].glyphId];
     expect(bases.length).toBeLessThanOrEqual(2);
     for (const g of bases) expect(plain).not.toContain(g.glyphId);
+  });
+
+  it.each(TEST_WORDS)('%s: each diacritic keeps its own identity and its letter', (word) => {
+    for (const g of shapeLine(font, word).glyphs) {
+      if (g.letter === g.base) continue;
+      // The glyph comes from a diacritic character…
+      expect(isMark(word.charCodeAt(g.letter))).toBe(true);
+      // …and is laid out with the letter it sits on.
+      expect(isMark(word.charCodeAt(g.base))).toBe(false);
+      expect(g.cluster).toBe(g.base);
+    }
   });
 
   it('marks are recognised in a vocalised word', () => {

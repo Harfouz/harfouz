@@ -8,6 +8,11 @@ export interface RenderInput {
   word: Params;
   /** Effective values for one letter: the word's, plus that letter's overrides. */
   letter: (index: number) => Params;
+  /**
+   * Position of a letter in reading order (diacritics share their letter's),
+   * used by palettes and by motion delays.
+   */
+  order: (index: number) => number;
   /** Letter currently being edited, or null when editing the whole word. */
   selected: number | null;
   /** Draw baseline and ascender/descender guides (2D only). */

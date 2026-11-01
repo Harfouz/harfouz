@@ -223,6 +223,8 @@ body {
   padding: 8px 8px 10px;
   cursor: pointer;
 }
+.letter-group { display: flex; align-items: stretch; gap: 2px; }
+.letter-chip--mark { min-width: 30px; font-size: 18px; padding: 8px 4px 10px; color: var(--accent); border-style: dashed; }
 .letter-chip:hover, .letterbar__word:hover { color: var(--ink); border-color: var(--ink-soft); }
 .letter-chip[aria-pressed='true'], .letterbar__word[aria-pressed='true'] {
   color: var(--sheet);

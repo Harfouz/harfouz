@@ -1,5 +1,6 @@
 import * as hb from 'harfbuzzjs';
 import { glyphOutline, type LoadedFont } from './fonts';
+import { isMark as isMarkChar } from './joining';
 import type { ShapedGlyph, ShapedLine } from './types';
 
 /**
@@ -16,6 +17,9 @@ export function shapeLine(font: LoadedFont, text: string, sourceIndex?: number[]
   buffer.setDirection(hb.Direction.RTL);
   buffer.setScript('Arab');
   buffer.setLanguage('ar');
+  // Report clusters character by character, so each diacritic keeps its own
+  // identity and can be edited on its own.
+  buffer.setClusterLevel(hb.ClusterLevel.MONOTONE_CHARACTERS);
   hb.shape(font.hbFont, buffer);
 
   const infos = buffer.getGlyphInfos();
@@ -29,10 +33,19 @@ export function shapeLine(font: LoadedFont, text: string, sourceIndex?: number[]
   infos.forEach((info, i) => {
     const pos = positions[i];
     const glyphId = info.codepoint;
+    // A diacritic character is laid out with its base letter (same cluster),
+    // but keeps its own index as `letter`, so it can carry its own settings.
+    const own = info.cluster;
+    let base = own;
+    if (isMarkChar(text.charCodeAt(own))) {
+      while (base > 0 && isMarkChar(text.charCodeAt(base))) base--;
+    }
+    const source = (i: number) => sourceIndex?.[i] ?? i;
     glyphs.push({
       glyphId,
-      cluster: info.cluster,
-      letter: sourceIndex?.[info.cluster] ?? info.cluster,
+      cluster: base,
+      letter: source(own),
+      base: source(base),
       x: penX + pos.xOffset,
       y: penY + pos.yOffset,
       advance: pos.xAdvance,

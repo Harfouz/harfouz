@@ -26,7 +26,7 @@ In 3D, hairy textures **grow real fur**. In 2D, materials become relief, grain a
 
 **Space (3D)**: extruded letters with depth and bevel, in a lit scene with soft shadows and an orbit camera. Stagger, twist, spin, and per-letter push, lift, turn and tilt. **Connected letters stay attached**: the joining stroke bends and stretches instead of breaking.
 
-**Every setting works for the whole word or for a single letter.** Click a letter to give it its own values.
+**Every setting works for the whole word, for a single letter, or for a single diacritic.** Click a letter, or a fatha, damma, kasra, shadda, sukun or tanwin, to give it its own values. Diacritics follow their letter until you change them, and in 3D they move with it.
 
 **Motion**: any slider can move (sine, triangle, bounce, ramp or organic noise), with a delay between letters to make ripples. Every motion loops seamlessly. Ready-made presets: wave, hop, breathe, ribbon, turntable, liquid, kashida stretch.
 
