@@ -147,6 +147,41 @@ body {
 .anim-panel .control__label { font-size: 11px; }
 .anim-glyph { color: var(--accent); }
 
+/* ── Arabic keyboard ───────────────────────────────────── */
+.typing { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.keyboard {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  /* The physical layout reads left to right, like the keyboard itself. */
+  direction: ltr;
+}
+.kb-row { display: flex; gap: 5px; justify-content: center; }
+.kb-row--harakat { flex-wrap: wrap; padding-bottom: 6px; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
+.kb-key {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 48px;
+  height: 40px;
+  font-family: var(--font-ar);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.kb-key:hover { border-color: var(--ink-soft); }
+.kb-key:active { background: var(--ink); color: var(--sheet); }
+.kb-key--mark { color: var(--accent); max-width: 44px; }
+.kb-key--wide { flex: 1.6 1 0; max-width: 72px; font-family: var(--font-ui); font-size: 13px; }
+.kb-key--wide[aria-pressed='true'] { background: var(--ink); color: var(--sheet); }
+.kb-key--space { flex: 5 1 0; max-width: 320px; font-size: 15px; color: var(--muted); }
+
 /* ── Letter picker ─────────────────────────────────────── */
 .letterbar { display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .letterbar__word {
@@ -412,6 +447,9 @@ input[type='range']:hover::-webkit-slider-thumb { border-color: var(--accent); }
   .stage { padding: 16px; height: 52vh; }
   .stage { height: auto; }
   .stage .artboard { flex: none; height: 52vh; }
+  .keyboard { padding: 6px; gap: 4px; }
+  .kb-row { gap: 3px; }
+  .kb-key { height: 36px; font-size: 17px; }
   .scope { padding: 10px 16px; }
   .panel { border-inline-start: 0; border-top: 1px solid var(--line); }
   .panel__section { padding: 18px 16px; }

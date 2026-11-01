@@ -37,6 +37,7 @@
           <button type="button" class="letterbar__word" id="pick-word" aria-pressed="true">Whole word</button>
           <div class="letterbar__letters" id="letters" dir="rtl"></div>
         </nav>
+        <div class="keyboard" id="keyboard" hidden aria-label="Arabic keyboard"></div>
       </section>
 
       <aside class="panel" aria-label="Controls">
@@ -51,6 +52,12 @@
             <span class="field__label">Word or phrase</span>
             <input id="text" class="text-input" type="text" dir="rtl" lang="ar" autocomplete="off" spellcheck="false" />
           </label>
+          <div class="typing">
+            <button type="button" class="button" id="toggle-keyboard" aria-pressed="false" aria-controls="keyboard">⌨ Arabic keyboard</button>
+            <label class="toggle" title="Each key types the Arabic letter found at the same place on an Arabic keyboard (Q → ض, A → ش…). Shift gives the harakat.">
+              <input type="checkbox" id="map-keys" checked /> <span>My keys type Arabic</span>
+            </label>
+          </div>
           <div class="chips" id="samples" aria-label="Sample words"></div>
           <label class="field">
             <span class="field__label">Typeface</span>

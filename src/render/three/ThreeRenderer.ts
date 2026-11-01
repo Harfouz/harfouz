@@ -311,7 +311,7 @@ export class ThreeRenderer implements Renderer {
     const vHalf = (this.camera.fov * Math.PI) / 360;
     const hHalf = Math.atan(Math.tan(vHalf) * this.camera.aspect);
     const distance =
-      Math.max(size.x / 2 / Math.tan(hHalf), size.y / 2 / Math.tan(vHalf)) * 1.15 + size.z / 2;
+      Math.max(size.x / 2 / Math.tan(hHalf), size.y / 2 / Math.tan(vHalf)) * 1.3 + size.z / 2;
     this.controls.target.copy(center);
     this.camera.position.copy(center).addScaledVector(DEFAULT_VIEW, distance);
     this.camera.near = distance / 100;

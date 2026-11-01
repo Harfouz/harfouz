@@ -24,6 +24,7 @@ import { ParamState } from './params/state';
 import { SvgRenderer } from './render/svg/SvgRenderer';
 import { ThreeRenderer } from './render/three/ThreeRenderer';
 import { buildControls } from './ui/controls';
+import { buildKeyboard, mapPhysicalKeys } from './ui/keyboard';
 
 /** Words that exercise joins, ligatures and diacritics. */
 const SAMPLES = ['كَلِمَة', 'السَّلَامُ عَلَيْكُمْ', 'مُدَرِّسَة', 'لِلْأَطْفَالِ', 'مستشفى', 'محمد', 'لا', 'جـمـيـل'];
@@ -430,6 +431,19 @@ function setText(text: string) {
 
 textInput.value = state.text;
 textInput.addEventListener('input', () => setText(textInput.value));
+
+// Arabic keyboard: on screen, and physical keys typing Arabic.
+const mapKeys = $<HTMLInputElement>('map-keys');
+mapPhysicalKeys(textInput, () => mapKeys.checked);
+buildKeyboard($('keyboard'), textInput);
+$('toggle-keyboard').addEventListener('click', () => {
+  const keyboard = $('keyboard');
+  keyboard.hidden = !keyboard.hidden;
+  $('toggle-keyboard').setAttribute('aria-pressed', String(!keyboard.hidden));
+  if (!keyboard.hidden) textInput.focus();
+  // The artwork area changes size: frame the word again once the layout settles.
+  requestAnimationFrame(updateAndFrame);
+});
 
 for (const word of SAMPLES) {
   const chip = document.createElement('button');
