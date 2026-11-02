@@ -1,6 +1,7 @@
 # Harfouz · حرفوز
 
 **An open-source playground for parametric Arabic typography.**
+**Try it: [harfouz.github.io/harfouz](https://harfouz.github.io/harfouz/)**. It runs in the browser, nothing to install.
 Type a word or a sentence in Arabic, then shape it, colour it, put it in 3D and animate it, with sliders. Export the result as an image, a vector file, a 3D model or a video.
 
 Harfouz is made for designers, animators and type lovers. Its one rule: **the Arabic must stay correct.** Letters take their proper joined forms, ligatures and diacritics are placed by a real shaping engine, and every deformation is applied *after* shaping, so connected letters stay connected.
@@ -47,7 +48,7 @@ Animations are rendered frame by frame at exact moments of the loop, so they nev
 You need [Node.js](https://nodejs.org) **20.19 or later** (22 LTS recommended).
 
 ```bash
-git clone <this repository>
+git clone https://github.com/Harfouz/harfouz.git
 cd harfouz
 npm install
 npm run dev
