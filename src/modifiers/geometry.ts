@@ -1,7 +1,7 @@
 import type { Composition, PathCommand, ShapedLine } from '../core/types';
 
-type Point = { x: number; y: number };
-type PointMap = (p: Point) => Point;
+export type Point = { x: number; y: number };
+export type PointMap = (p: Point) => Point;
 
 /** Place every glyph outline at its position on the line (absolute coordinates). */
 export function toComposition(line: ShapedLine): Composition {
@@ -47,18 +47,12 @@ export function mapCommands(commands: PathCommand[], f: PointMap): PathCommand[]
 
 /**
  * Slant is a shear: x moves in proportion to the height above the baseline.
- * It is applied to control points, which is exact (curves stay curves), and
- * since it only depends on y, each letter can have its own angle while
- * joins on the baseline stay in place.
+ * Applied to control points it is exact (curves stay curves). Returns null
+ * when there is nothing to do.
  */
-export function applySlant(comp: Composition, slantDeg: (letter: number) => number): Composition {
-  return {
-    ...comp,
-    glyphs: comp.glyphs.map((g) => {
-      const shear = Math.tan((slantDeg(g.letter) * Math.PI) / 180);
-      return shear === 0 ? g : { ...g, commands: mapCommands(g.commands, (p) => ({ x: p.x + p.y * shear, y: p.y })) };
-    }),
-  };
+export function slantMap(slantDeg: number): PointMap | null {
+  const shear = Math.tan((slantDeg * Math.PI) / 180);
+  return shear === 0 ? null : (p) => ({ x: p.x + p.y * shear, y: p.y });
 }
 
 /**

@@ -28,7 +28,7 @@ Please run `npm test` and `npm run build` before opening a pull request. Both mu
 Every change must keep the Arabic correct. In practice:
 
 1. **Shaping comes first.** Never change outlines before HarfBuzz has shaped the text. Text-level effects (like kashida) happen before shaping. Everything else happens after, on positioned glyphs.
-2. **Joins are sacred.** Anything that moves letters must keep connected letters connected: spacing only opens gaps between unjoined letters (`src/core/joining.ts`), and in 3D the junction blend (`src/render/three/deform.ts`) keeps both sides of a join together.
+2. **Joins are sacred.** Anything that moves letters must keep connected letters connected: spacing only opens gaps between unjoined letters (`src/core/joining.ts`), and the junction blend (`src/modifiers/joins.ts`) keeps both sides of a join together: for slant and distortion (`src/modifiers/bend.ts`) and for placement in 3D (`src/render/three/deform.ts`). `tests/joins.test.ts` checks it in every font.
 3. **Diacritics belong to their letter.** A letter and its harakat share a cluster and a `letter` index. Move, colour and animate them together.
 4. **Test with real, difficult words**, in every bundled typeface. The fixtures in `tests/fixtures.ts` include lam-alef, shadda + kasra, chains of teeth, vertical stacks and explicit tatweel. Add words there when you find a new tricky case.
 

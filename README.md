@@ -88,7 +88,7 @@ text ─▶ kashida ─▶ shaping ─▶ layout modifiers ─▶ geometry modif
 2. **Shaping** (`src/core/shaping.ts`): [HarfBuzz](https://harfbuzz.github.io) picks each letter's contextual form, applies ligatures and positions diacritics. Glyph outlines come from [opentype.js](https://opentype.js.org).
 3. **Layout modifiers** (`src/modifiers/`) change positions letter by letter. Spacing only opens gaps where letters are *not* joined (`src/core/joining.ts` knows the Arabic joining rules).
 4. **Geometry modifiers** change the outlines themselves: shear for slant, and a seeded Perlin noise field for distortion, sampled in line space so joins move together.
-5. **The renderer** (`src/render/three/ThreeRenderer.ts`) extrudes each letter and diacritic. `three/deform.ts` keeps connected letters attached: it finds where two letters meet, blends their placements around that point, and keeps the rest of each letter rigid. It follows the `Renderer` interface (`src/render/Renderer.ts`), so another renderer could be plugged in later.
+5. **The renderer** (`src/render/three/ThreeRenderer.ts`) extrudes each letter and diacritic. `three/deform.ts` keeps connected letters attached: it finds where two letters meet (`src/modifiers/joins.ts`, also used for slant and distortion), blends their placements around that point, and keeps the rest of each letter rigid. It follows the `Renderer` interface (`src/render/Renderer.ts`), so another renderer could be plugged in later.
 
 Parameters are described once in `src/params/schema.ts`. The panel, per-letter overrides (`params/state.ts`) and animation (`params/animation.ts`) are all built from that list.
 
