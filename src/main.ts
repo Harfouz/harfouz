@@ -539,6 +539,7 @@ function refreshExportOptions() {
   const isModel = format.id === 'glb';
   exportSize.closest('.field')!.toggleAttribute('hidden', isModel);
   exportBackground.closest('.field')!.toggleAttribute('hidden', isModel);
+  $('export-mark-row').hidden = isModel;
   for (const el of document.querySelectorAll<HTMLElement>('[data-export="animation"]')) el.hidden = exportKind !== 'animation';
 }
 
@@ -601,6 +602,7 @@ $('export-go').addEventListener('click', async () => {
       fps: Number($<HTMLSelectElement>('export-fps').value),
       loops: Number($<HTMLSelectElement>('export-loops').value),
       loopSeconds: clock.loop,
+      mark: $<HTMLInputElement>('export-mark').checked,
       onProgress: (done) => ($('export-bar').style.width = `${done * 100}%`),
       signal: exportAbort.signal,
     });
@@ -608,8 +610,8 @@ $('export-go').addEventListener('click', async () => {
     download(blob, `harfouz-${state.fontId}-${stamp}.${format.extension}`);
     const kb = blob.size / 1024;
     const weight = kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`;
-    exportStatus.textContent =
-      format.id === 'glb' ? `Done: ${format.label}, ${weight}.` : `Done: ${format.label}, ${width} × ${height}, ${weight}.`;
+    const what = format.id === 'glb' ? `${format.label}, ${weight}` : `${format.label}, ${width} × ${height}, ${weight}`;
+    exportStatus.textContent = `Done: ${what}. Sharing it? Tag #harfouz so others can find the tool.`;
   } catch (err) {
     exportStatus.textContent =
       (err as Error).name === 'AbortError' ? 'Export cancelled.' : `Export failed: ${(err as Error).message}`;

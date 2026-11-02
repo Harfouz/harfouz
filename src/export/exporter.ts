@@ -11,6 +11,7 @@ import {
   type VideoCodec,
 } from 'mediabunny';
 import type { ExportFormat } from './formats';
+import { drawMark, SIGNATURE, signGif, signGlb, signJpeg, signPng, signSvg } from './signature';
 
 /** What the exporter needs from the app: pictures of the artwork. */
 export interface FrameSource {
@@ -36,6 +37,8 @@ export interface ExportJob {
   fps: number;
   loops: number;
   loopSeconds: number;
+  /** Add a small visible "Made with Harfouz" mark (the invisible credit is always added). */
+  mark: boolean;
   onProgress: (done: number) => void;
   signal: AbortSignal;
 }
@@ -63,23 +66,32 @@ const checkCancel = (signal: AbortSignal) => {
 };
 
 /** Make the file. */
+const bytes = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer());
+
 export async function runExport(source: FrameSource, job: ExportJob): Promise<Blob> {
   const { format, width, height, signal } = job;
   // Formats without transparency get a background no matter what.
   const background = format.alpha ? job.background : (job.background ?? '#ffffff');
+  const frameAt = async (t: number) => {
+    const canvas = await source.frame(t, width, height, background);
+    if (job.mark) drawMark(canvas, background);
+    return canvas;
+  };
 
   switch (format.id) {
     case 'png':
+      return new Blob([signPng(await bytes(await canvasBlob(await frameAt(job.t), 'image/png'))).slice()], { type: 'image/png' });
     case 'jpg':
-    case 'webp': {
-      const canvas = await source.frame(job.t, width, height, background);
-      const type = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }[format.id]!;
-      return canvasBlob(canvas, type, 0.95);
-    }
+      return new Blob([signJpeg(await bytes(await canvasBlob(await frameAt(job.t), 'image/jpeg', 0.95))).slice()], {
+        type: 'image/jpeg',
+      });
+    case 'webp':
+      // WebP has no simple comment field; the visible mark is the only credit here.
+      return canvasBlob(await frameAt(job.t), 'image/webp', 0.95);
     case 'svg':
-      return new Blob([source.svg(background)], { type: 'image/svg+xml' });
+      return new Blob([signSvg(source.svg(background), job.mark)], { type: 'image/svg+xml' });
     case 'glb':
-      return new Blob([await source.glb()], { type: 'model/gltf-binary' });
+      return new Blob([signGlb(await source.glb())], { type: 'model/gltf-binary' });
   }
 
   // Animations: one frame at each exact moment of the loop(s).
@@ -91,24 +103,23 @@ export async function runExport(source: FrameSource, job: ExportJob): Promise<Bl
     const delay = Math.round(1000 / job.fps);
     for (let i = 0; i < total; i++) {
       checkCancel(signal);
-      const canvas = await source.frame(timeAt(i), width, height, background);
+      const canvas = await frameAt(timeAt(i));
       const { data } = canvas.getContext('2d')!.getImageData(0, 0, width, height);
       const palette = quantize(data, 256);
       gif.writeFrame(applyPalette(data, palette), width, height, { palette, delay, repeat: 0 });
       job.onProgress((i + 1) / total);
     }
     gif.finish();
-    return new Blob([gif.bytes().slice()], { type: 'image/gif' });
+    return new Blob([signGif(gif.bytes()).slice()], { type: 'image/gif' });
   }
 
   if (format.id === 'png-sequence') {
-    const files: Record<string, Uint8Array> = {};
+    const files: Record<string, [Uint8Array, { comment: string }]> = {};
     const digits = String(total).length;
     for (let i = 0; i < total; i++) {
       checkCancel(signal);
-      const canvas = await source.frame(timeAt(i), width, height, background);
-      const png = new Uint8Array(await (await canvasBlob(canvas, 'image/png')).arrayBuffer());
-      files[`frame_${String(i + 1).padStart(Math.max(4, digits), '0')}.png`] = png;
+      const png = signPng(await bytes(await canvasBlob(await frameAt(timeAt(i)), 'image/png')));
+      files[`frame_${String(i + 1).padStart(Math.max(4, digits), '0')}.png`] = [png, { comment: SIGNATURE }];
       job.onProgress((i + 1) / total);
     }
     // PNGs are already compressed: store them as they are.
@@ -128,11 +139,12 @@ export async function runExport(source: FrameSource, job: ExportJob): Promise<Bl
   });
   const video = new CanvasSource(canvas, { codec, quality: QUALITY_HIGH });
   output.addVideoTrack(video, { frameRate: job.fps });
+  output.setMetadataTags({ comment: SIGNATURE });
   await output.start();
   try {
     for (let i = 0; i < total; i++) {
       checkCancel(signal);
-      const frame = await source.frame(timeAt(i), width, height, background);
+      const frame = await frameAt(timeAt(i));
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(frame, 0, 0);
       await video.add(i / job.fps, 1 / job.fps);

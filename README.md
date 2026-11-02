@@ -41,6 +41,8 @@ In 3D, hairy textures **grow real fur**. In 2D, materials become relief, grain a
 
 Animations are rendered frame by frame at exact moments of the loop, so they never drop frames.
 
+Exported files carry a discreet "Made with Harfouz" note in their metadata (it never changes the picture, and your work stays yours). A small visible mark can be added as an option.
+
 ---
 
 ## Getting started
