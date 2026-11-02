@@ -122,5 +122,6 @@ describe.each(fonts)('junctions with $name', (font) => {
         before + font.unitsPerEm * 0.02,
       );
     }
-  });
+    // Compares every vertex of two letters with every other: heavy, so allow time on slow machines.
+  }, 30_000);
 });
