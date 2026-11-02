@@ -316,7 +316,9 @@ body {
 
 /* ── Segmented switch (export: image / animation) ──────── */
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
-.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label { position: relative; }
+/* Hidden radio, kept inside its label: placed against the page it would stretch it far below the window. */
+.segmented input { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
 .segmented span {
   display: block;
   padding: 3px 12px;
@@ -357,6 +359,7 @@ body {
 
 /* ── Panel ─────────────────────────────────────────────── */
 .panel {
+  position: relative;
   border-inline-start: 1px solid var(--line);
   overflow-y: auto;
 }
