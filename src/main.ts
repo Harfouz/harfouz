@@ -95,6 +95,7 @@ function update(forExport = false) {
       word,
       letter: resolve,
       order: (i) => orderOf.get(i) ?? 0,
+      gradientOwner: (i) => params.gradientOwner(i),
       selected: forExport ? null : state.selected,
       geometryKey,
     });

@@ -119,9 +119,14 @@ export function buildGradientEditor(
         handle.addEventListener('pointerdown', (e) => {
           e.preventDefault();
           handle.focus();
-          handle.setPointerCapture(e.pointerId);
-          dragging = true;
           selected = i;
+          dragging = true;
+          try {
+            // Keep receiving moves even outside the handle.
+            handle.setPointerCapture(e.pointerId);
+          } catch {
+            // Some pointers can't be captured; dragging still works over the bar.
+          }
           for (const other of handles.children) other.setAttribute('aria-pressed', String(other === handle));
           const current = stops();
           const moving = current[i];

@@ -26,11 +26,52 @@ describe('letter colours', () => {
     expect(letterFill(p.word, p.resolve(2), 2, INK)).toBe('gradient');
   });
 
-  it("a letter's own colour wins over every mode", () => {
+  it('a letter can have its own colour mode inside a gradient or palette word', () => {
     const p = new ParamState();
     p.set(null, 'fill', 'palette');
+    p.set(4, 'fill', 'solid');
     p.set(4, 'color', '#ff0000');
     expect(letterFill(p.word, p.resolve(4), 3, INK)).toBe('#ff0000');
+    p.set(null, 'fill', 'gradient');
+    expect(letterFill(p.word, p.resolve(4), 3, INK)).toBe('#ff0000');
+    expect(letterFill(p.word, p.resolve(2), 1, INK)).toBe('gradient');
+  });
+
+  it('diacritics take their letter\'s colour mode and colour', () => {
+    const p = new ParamState();
+    p.setParents(new Map([[1, 0]]));
+    p.set(null, 'fill', 'gradient');
+    p.set(0, 'fill', 'solid');
+    p.set(0, 'color', '#00ff00');
+    expect(letterFill(p.word, p.resolve(1), 0, INK)).toBe('#00ff00');
+  });
+});
+
+describe('gradient ownership', () => {
+  it('the word owns the gradient until a letter or diacritic defines its own', () => {
+    const p = new ParamState();
+    p.setParents(new Map([[1, 0]]));
+    p.set(null, 'fill', 'gradient');
+    expect(p.gradientOwner(0)).toBeNull();
+    expect(p.gradientOwner(1)).toBeNull();
+  });
+
+  it('a letter with its own gradient carries its diacritics with it', () => {
+    const p = new ParamState();
+    p.setParents(new Map([[1, 0]]));
+    p.set(0, 'gradientAngle', 90);
+    expect(p.gradientOwner(0)).toBe(0);
+    expect(p.gradientOwner(1)).toBe(0);
+    expect(p.resolve(1).gradientAngle).toBe(90);
+  });
+
+  it('a diacritic can have a gradient of its own', () => {
+    const p = new ParamState();
+    p.setParents(new Map([[1, 0]]));
+    p.set(0, 'fill', 'gradient');
+    p.set(1, 'gradient', JSON.stringify([{ pos: 0, color: '#000000' }, { pos: 1, color: '#ffffff' }]));
+    expect(p.gradientOwner(1)).toBe(1);
+    expect(p.gradientOwner(0)).toBe(0);
   });
 });
 

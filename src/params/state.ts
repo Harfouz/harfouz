@@ -66,6 +66,25 @@ export class ParamState {
     return this.overrides.get(letter)?.[key] !== undefined;
   }
 
+  /** The letter a diacritic sits on, if any. */
+  parentOf(index: number): number | undefined {
+    return this.parents.get(index);
+  }
+
+  /**
+   * Whose gradient colours this element: the diacritic or letter itself if
+   * it has its own colour mode or gradient, else its letter's, else the
+   * word's (null). The gradient spans the shape of that owner.
+   */
+  gradientOwner(index: number): number | null {
+    const keys: (keyof Params)[] = ['fill', 'gradient', 'gradientAngle'];
+    const owns = (i: number) => keys.some((k) => this.overrides.get(i)?.[k] !== undefined);
+    if (owns(index)) return index;
+    const parent = this.parents.get(index);
+    if (parent !== undefined && owns(parent)) return parent;
+    return null;
+  }
+
   hasOverrides(letter: number): boolean {
     return this.overrides.has(letter);
   }

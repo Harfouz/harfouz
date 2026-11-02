@@ -210,7 +210,8 @@ export const LOOK_PARAMS = [
     ],
   },
   {
-    kind: 'choice', key: 'fill', label: 'Colour mode', default: 'solid', scope: 'word',
+    kind: 'choice', key: 'fill', label: 'Colour mode', default: 'solid',
+    hint: 'On a letter or a diacritic: its own colour mode. Diacritics follow their letter until given their own.',
     options: [
       { value: 'solid', label: 'Solid' },
       { value: 'gradient', label: 'Gradient' },
@@ -219,22 +220,20 @@ export const LOOK_PARAMS = [
   },
   {
     kind: 'color', key: 'color', label: 'Colour', default: 'ink',
-    hint: 'On a letter, overrides the colour mode for that letter.',
-    // On the word it only matters in solid mode; a letter can always have its own.
-    showIf: { key: 'fill', equals: 'solid', level: 'word' },
+    showIf: { key: 'fill', equals: 'solid' },
   },
   {
-    kind: 'gradient', key: 'gradient', label: 'Gradient', scope: 'word',
+    kind: 'gradient', key: 'gradient', label: 'Gradient',
     default: JSON.stringify([
       { pos: 0, color: '#c0412b' },
       { pos: 1, color: 'ink' },
     ]),
-    hint: 'Drag a colour to move it. Click the bar to add a colour.',
+    hint: 'Drag a colour to move it. Click the bar to add a colour. On a letter or a diacritic, the gradient spans its own shape.',
     showIf: { key: 'fill', equals: 'gradient' },
   },
   {
     kind: 'range', key: 'gradientAngle', label: 'Gradient direction', min: -180, max: 180, step: 1, default: 0, unit: '°',
-    scope: 'word', showIf: { key: 'fill', equals: 'gradient' },
+    showIf: { key: 'fill', equals: 'gradient' },
     hint: '0°: left to right. 90°: bottom to top. Can be animated.',
   },
   {

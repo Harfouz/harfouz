@@ -13,6 +13,11 @@ export interface RenderInput {
    * used by palettes and by motion delays.
    */
   order: (index: number) => number;
+  /**
+   * Which element's gradient colours this one: itself or its letter (the
+   * gradient then spans that element's shape), or null for the word's.
+   */
+  gradientOwner: (index: number) => number | null;
   /** Letter currently being edited, or null when editing the whole word. */
   selected: number | null;
   /**

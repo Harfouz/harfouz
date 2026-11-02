@@ -31,6 +31,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import type { Composition } from '../../core/types';
 import { inkOf, letterFill, parseGradient, resolveColor, textureOf } from '../look';
 import { HAIRY } from '../textures';
+import type { Params } from '../../params/schema';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
 import { deformGeometry, findJunctions, frameMatrix, letterSpans, type LetterFrame } from './deform';
@@ -49,35 +50,54 @@ export function shapesByLetter(comp: Composition): { letter: number; shapes: Sha
   return [...byLetter.entries()].sort(([a], [b]) => a - b).map(([letter, shapes]) => ({ letter, shapes }));
 }
 
+/** A box in the plane of the letters (font units, y up). */
+interface Box2 {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
 /** A gradient ready to paint: stops as three.js colours, and a direction. */
 interface PaintableGradient {
   stops: { pos: number; color: Color }[];
   /** Unit direction in the plane of the letters (font units, y up). */
   dx: number;
   dy: number;
-  /** Range of `x·dx + y·dy` over the word's box, mapped to 0 → 1. */
+  /** Range of `x·dx + y·dy` over the owner's box, mapped to 0 → 1. */
   min: number;
   max: number;
+  /** Optional limits on the position (0 → 1), e.g. a diacritic kept within its letter's colours. */
+  clamp?: [number, number];
 }
 
-function prepareGradient(comp: Composition, value: string, angleDeg: number, ink: string): PaintableGradient {
+const corners = (b: Box2) => [
+  [b.minX, b.minY],
+  [b.maxX, b.minY],
+  [b.minX, b.maxY],
+  [b.maxX, b.maxY],
+];
+
+function prepareGradient(box: Box2, value: string, angleDeg: number, ink: string): PaintableGradient {
   const a = (angleDeg * Math.PI) / 180;
   const dx = Math.cos(a);
   const dy = Math.sin(a);
-  // Project the corners of the word's box: the gradient spans exactly the word.
-  const corners = [
-    [0, comp.descender],
-    [comp.width, comp.descender],
-    [0, comp.ascender],
-    [comp.width, comp.ascender],
-  ].map(([x, y]) => x * dx + y * dy);
+  // Project the corners of the box: the gradient spans exactly that box.
+  const projected = corners(box).map(([x, y]) => x * dx + y * dy);
   return {
     stops: parseGradient(value).map((s) => ({ pos: s.pos, color: new Color(resolveColor(s.color, ink)) })),
     dx,
     dy,
-    min: Math.min(...corners),
-    max: Math.max(...corners),
+    min: Math.min(...projected),
+    max: Math.max(...projected),
   };
+}
+
+/** The same gradient, limited to the part of it that falls on `box`. */
+function clampedTo(g: PaintableGradient, box: Box2): PaintableGradient {
+  const span = Math.max(g.max - g.min, 1e-6);
+  const ts = corners(box).map(([x, y]) => (x * g.dx + y * g.dy - g.min) / span);
+  return { ...g, clamp: [Math.min(...ts), Math.max(...ts)] };
 }
 
 /**
@@ -92,7 +112,8 @@ function paintGradient(geometry: BufferGeometry, g: PaintableGradient) {
   const span = Math.max(g.max - g.min, 1e-6);
   const last = g.stops[g.stops.length - 1];
   for (let i = 0; i < position.count; i++) {
-    const t = (position.getX(i) * g.dx + position.getY(i) * g.dy - g.min) / span;
+    let t = (position.getX(i) * g.dx + position.getY(i) * g.dy - g.min) / span;
+    if (g.clamp) t = Math.min(g.clamp[1], Math.max(g.clamp[0], t));
     if (t <= g.stops[0].pos) c.copy(g.stops[0].color);
     else if (t >= last.pos) c.copy(last.color);
     else {
@@ -205,13 +226,27 @@ export class ThreeRenderer implements Renderer {
     this.needsFraming = true;
   }
 
-  render({ composition: comp, word, letter, order: readingOrder, selected, geometryKey }: RenderInput) {
+  render({ composition: comp, word, letter, order: readingOrder, gradientOwner, selected, geometryKey }: RenderInput) {
     const em = comp.unitsPerEm;
     const perMille = em / 1000;
     const rad = Math.PI / 180;
 
     const ink = inkOf(this.container ?? document.body);
-    const gradient = prepareGradient(comp, word.gradient, word.gradientAngle, ink);
+    // Gradients span the shape of the element that defines them: the word,
+    // a letter, or a diacritic. A diacritic following a gradient defined by
+    // its letter or the word keeps to its letter's part of it.
+    const wordBox: Box2 = { minX: 0, maxX: comp.width, minY: comp.descender, maxY: comp.ascender };
+    const boxOf = (index: number | null): Box2 => {
+      const b = index === null ? null : this.volumes.get(index)?.geometry.boundingBox;
+      return b ? { minX: b.min.x, maxX: b.max.x, minY: b.min.y, maxY: b.max.y } : wordBox;
+    };
+    const baseOfGlyph = new Map(comp.glyphs.map((g) => [g.letter, g.base]));
+    const gradientFor = (index: number, p: Params): PaintableGradient => {
+      const owner = gradientOwner(index);
+      const g = prepareGradient(boxOf(owner), p.gradient, p.gradientAngle, ink);
+      const base = baseOfGlyph.get(index) ?? index;
+      return base !== index && owner !== index ? clampedTo(g, boxOf(base)) : g;
+    };
     this.clearWord();
 
     // 1. Every letter's volume. Extruding is the slow part, so volumes are
@@ -303,7 +338,8 @@ export class ThreeRenderer implements Renderer {
 
       // Colour first: the gradient follows the letter's place on the line.
       const fill = letterFill(word, p, readingOrder(index), ink);
-      if (fill === 'gradient') paintGradient(geometry, gradient);
+      const gradient = fill === 'gradient' ? gradientFor(index, p) : null;
+      if (gradient) paintGradient(geometry, gradient);
       const color = fill === 'gradient' ? null : fill;
 
       deformGeometry(geometry, index, frames, junctions, softness);
@@ -336,7 +372,7 @@ export class ThreeRenderer implements Renderer {
         // Keep the mesh for picking, but only draw its edges.
         mesh.visible = false;
         const edgeGeometry = new EdgesGeometry(geometry, 20);
-        if (color === null) paintGradient(edgeGeometry, gradient);
+        if (gradient) paintGradient(edgeGeometry, gradient);
         const edges = new LineSegments(edgeGeometry, this.materials.line(color));
         edges.userData.letter = index;
         group.add(edges);

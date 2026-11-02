@@ -65,15 +65,13 @@ export function gradientColorAt(stops: GradientStop[], t: number, ink: string): 
 }
 
 /**
- * The colour of one letter:
- * - a colour the letter overrides wins,
- * - otherwise the word's colour mode decides: one solid colour, a palette
- *   colour picked by reading order, or 'gradient' (the renderer colours the
- *   letters along the word's gradient, see `word.gradient`).
+ * The colour of one letter or diacritic, from its colour mode (its own,
+ * else its letter's, else the word's): one solid colour, a palette colour
+ * picked by reading order, or 'gradient' (the renderer colours it along the
+ * gradient of whichever element defines it, see `gradientOwner`).
  */
 export function letterFill(word: Params, letter: Params, order: number, ink: string): string | 'gradient' {
-  if (letter.color !== word.color) return resolveColor(letter.color, ink);
-  switch (word.fill) {
+  switch (letter.fill) {
     case 'gradient':
       return 'gradient';
     case 'palette': {
@@ -81,7 +79,7 @@ export function letterFill(word: Params, letter: Params, order: number, ink: str
       return palette[order % palette.length];
     }
     default:
-      return resolveColor(word.color, ink);
+      return resolveColor(letter.color, ink);
   }
 }
 
