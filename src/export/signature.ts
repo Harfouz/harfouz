@@ -2,7 +2,7 @@
  * "Made with Harfouz": a credit added to exported files.
  *
  * - Invisible: written into each format's own metadata (PNG text chunk, JPEG
- *   and GIF comment, SVG metadata, glTF asset info, video comment, ZIP file
+ *   and GIF comment, glTF asset info, video comment, ZIP file
  *   comments). It never changes the picture and claims no rights over it:
  *   the work belongs to whoever made it.
  * - Visible (optional, off by default): a small mark in a corner.
@@ -111,23 +111,6 @@ export function signGlb(glb: ArrayBuffer): ArrayBuffer {
   out.set(text, 20);
   out.set(rest, 20 + text.length);
   return out.buffer;
-}
-
-// ── SVG: metadata, and the visible mark ──────────────────
-
-/** Add the credit as SVG metadata (and, if asked, a small visible mark). */
-export function signSvg(svg: string, visible: boolean): string {
-  const metadata = `<metadata>${SIGNATURE}</metadata>`;
-  let out = svg.replace(/(<svg[^>]*>)/, `$1${metadata}`);
-  if (visible) {
-    const [x, y, w, h] = (out.match(/viewBox="([^"]+)"/)?.[1] ?? '0 0 100 100').split(/[ ,]+/).map(Number);
-    const size = Math.min(w, h) * 0.035;
-    const mark =
-      `<text x="${x + w - size}" y="${y + h - size}" text-anchor="end" font-size="${size}" ` +
-      `font-family="system-ui, sans-serif" fill="#808080" fill-opacity="0.75">Made with Harfouz</text>`;
-    out = out.replace(/<\/svg>\s*$/, `${mark}</svg>`);
-  }
-  return out;
 }
 
 // ── Visible mark on pictures ─────────────────────────────

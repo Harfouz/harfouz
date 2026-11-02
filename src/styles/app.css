@@ -259,9 +259,6 @@ body {
 .scope__target { flex: 1; font-size: 13px; }
 .scope__target .ar { font-family: var(--font-ar); font-size: 20px; color: var(--accent); }
 
-/* SVG selection frame */
-.selection { fill: none; stroke: var(--accent); stroke-width: 1.5px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
-.letter { cursor: pointer; }
 
 .artboard {
   position: relative;
@@ -275,13 +272,10 @@ body {
 }
 .view { position: absolute; inset: 0; }
 .view[hidden] { display: none; }
-/* Absolutely positioned so the drawing never pushes the layout around;
-   the viewBox keeps it centred and proportional inside this box. */
-.view > svg { position: absolute; inset: 6% 4% 10%; width: 92%; height: 84%; }
 .three-canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .three-canvas:active { cursor: grabbing; }
 
-/* ── 3D / 2D switch ────────────────────────────────────── */
+/* ── Segmented switch (export: image / animation) ──────── */
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }
 .segmented span {
@@ -321,12 +315,6 @@ body {
   color: var(--muted);
 }
 
-/* ── Guides and inspector (SVG) ────────────────────────── */
-.guide { stroke: var(--guide); stroke-width: 1px; vector-effect: non-scaling-stroke; }
-.guide--ascender, .guide--descender { stroke-dasharray: 2 4; }
-.inspect__box { fill: none; stroke: var(--muted); stroke-width: 1px; vector-effect: non-scaling-stroke; }
-.inspect__mark { fill: var(--accent); }
-.inspect__reference { fill: var(--accent); opacity: 0.45; }
 
 /* ── Panel ─────────────────────────────────────────────── */
 .panel {
@@ -394,6 +382,36 @@ body {
 .control { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 8px; }
 .control--choice { grid-template-columns: 1fr; }
 .control--color { grid-template-columns: 1fr auto auto; align-items: center; }
+/* Gradient editor */
+.control--gradient { grid-template-columns: 1fr; }
+.gradient-editor { display: grid; gap: 4px; }
+.gradient-editor__bar {
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: copy;
+}
+.gradient-editor__handles { position: relative; height: 16px; margin: 0 7px; }
+.gradient-editor__stop {
+  position: absolute;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  padding: 0;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(135deg);
+  background: var(--stop);
+  border: 2px solid var(--sheet);
+  box-shadow: 0 0 0 1px var(--ink-soft);
+  cursor: ew-resize;
+  touch-action: none;
+}
+.gradient-editor__stop[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--accent); }
+.gradient-editor__stop:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent); }
+.gradient-editor__details { display: flex; align-items: center; gap: 10px; }
+.gradient-editor__details .link-button:disabled { opacity: 0.4; cursor: default; text-decoration: none; }
+
 .swatch {
   width: 34px;
   height: 22px;

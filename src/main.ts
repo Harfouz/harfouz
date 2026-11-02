@@ -1,4 +1,4 @@
-import { cssFamily, FONT_CATALOG, loadFont, type FontId, type LoadedFont } from './core/fonts';
+import { FONT_CATALOG, loadFont, type FontId, type LoadedFont } from './core/fonts';
 import { isMark } from './core/joining';
 import type { Composition } from './core/types';
 import { buildComposition } from './modifiers';
@@ -22,7 +22,6 @@ import {
   type RangeParam,
 } from './params/schema';
 import { ParamState } from './params/state';
-import { SvgRenderer } from './render/svg/SvgRenderer';
 import { ThreeRenderer } from './render/three/ThreeRenderer';
 import { buildControls } from './ui/controls';
 import { buildKeyboard, mapPhysicalKeys } from './ui/keyboard';
@@ -31,8 +30,6 @@ import { finalSize, FORMATS, SIZES, type ExportKind } from './export/formats';
 
 /** Words that exercise joins, ligatures and diacritics. */
 const SAMPLES = ['كَلِمَة', 'السَّلَامُ عَلَيْكُمْ', 'مُدَرِّسَة', 'لِلْأَطْفَالِ', 'مستشفى', 'محمد', 'لا', 'جـمـيـل'];
-
-type Mode = '3d' | '2d';
 
 const params = new ParamState();
 const anim = new AnimationState();
@@ -43,9 +40,6 @@ const clock = { playing: false, t: 0, speed: 1, loop: 4 };
 const state = {
   text: SAMPLES[0],
   fontId: 'amiri' as FontId,
-  mode: '3d' as Mode,
-  guides: true,
-  inspect: false,
   /** Letter being edited (index in the text), or null for the whole word. */
   selected: null as number | null,
 };
@@ -56,10 +50,9 @@ const fontSelect = $<HTMLSelectElement>('font');
 const samples = $<HTMLDivElement>('samples');
 const status = $<HTMLParagraphElement>('status');
 
-const renderers = { '3d': new ThreeRenderer(), '2d': new SvgRenderer() };
-renderers['3d'].mount($('view-3d'));
-renderers['2d'].mount($('view-2d'));
-for (const r of Object.values(renderers)) r.onPick = select;
+const renderer = new ThreeRenderer();
+renderer.mount($('view-3d'));
+renderer.onPick = select;
 
 let font: LoadedFont | null = null;
 
@@ -76,7 +69,7 @@ const SHAPE_KEYS = SHAPE_PARAMS.map((d) => d.key);
 const VOLUME_KEYS = ['depth', 'bevel'] as const;
 let cached: { key: string; composition: Composition } | null = null;
 
-/** Draw the current frame. For exports, editor helpers (guides, selection) are left out. */
+/** Draw the current frame. For exports, the selection frame is left out. */
 function update(forExport = false) {
   if (!font) return;
   try {
@@ -97,20 +90,16 @@ function update(forExport = false) {
     const composition = cached.composition;
     const geometryKey = shapeKey + JSON.stringify(letters.map((l) => pick(resolve(l.index), VOLUME_KEYS)));
 
-    renderers[state.mode].render({
+    renderer.render({
       composition,
       word,
       letter: resolve,
       order: (i) => orderOf.get(i) ?? 0,
       selected: forExport ? null : state.selected,
-      guides: forExport ? false : state.guides,
-      inspect: forExport ? false : state.inspect,
-      referenceFontFamily: cssFamily(state.fontId),
       geometryKey,
     });
     if (!clock.playing) {
-      const help = state.mode === '3d' ? ' · drag to orbit, scroll to zoom, right-drag to pan, click a letter to edit it' : '';
-      status.textContent = `${font.name} · ${composition.glyphs.length} glyphs${help}`;
+      status.textContent = `${font.name} · ${composition.glyphs.length} glyphs · drag to orbit, scroll to zoom, right-drag to pan, click a letter to edit it`;
     }
   } catch (err) {
     console.error(err);
@@ -130,18 +119,7 @@ async function useFont(id: FontId) {
 
 /** New text or font: the word changes size, so re-frame the 3D camera. */
 function updateAndFrame() {
-  renderers['3d'].frameNextRender();
-  update();
-}
-
-function setMode(mode: Mode) {
-  state.mode = mode;
-  refreshExportFormats();
-  $('view-3d').hidden = mode !== '3d';
-  $('view-2d').hidden = mode !== '2d';
-  for (const section of document.querySelectorAll<HTMLElement>('[data-mode]')) {
-    section.hidden = section.dataset.mode !== mode;
-  }
+  renderer.frameNextRender();
   update();
 }
 
@@ -288,7 +266,7 @@ function bindParams(containerId: string, resetId: string, defs: readonly ParamDe
     },
     isModified: (key) => params.isModified(state.selected, key as keyof Params),
     isAvailable: (def) =>
-      inScope(def, level()) && isShown(def, (k) => params.get(state.selected, k as keyof Params)),
+      inScope(def, level()) && isShown(def, (k) => params.get(state.selected, k as keyof Params), level()),
     decorate: (def, row) => (isAnimatable(def.key) ? addAnimToggle(def as RangeParam, row) : () => {}),
   });
   refreshers.push(refresh);
@@ -486,15 +464,11 @@ const exportSource: FrameSource = {
   async frame(t, width, height, background) {
     clock.t = t;
     update(true);
-    return renderers[state.mode].snapshot(width, height, background);
-  },
-  svg(background) {
-    update(true);
-    return renderers['2d'].svgString(background);
+    return renderer.snapshot(width, height, background);
   },
   glb() {
     update(true);
-    return renderers['3d'].glb();
+    return renderer.glb();
   },
 };
 
@@ -513,11 +487,11 @@ function currentFormat() {
   return FORMATS.find((f) => f.id === exportFormat.value) ?? FORMATS[0];
 }
 
-/** Formats offered for the current kind (image / animation) and view (2D / 3D). */
+/** Formats offered for the current kind (image / animation). */
 function refreshExportFormats() {
   const previous = exportFormat.value;
   exportFormat.replaceChildren();
-  for (const f of FORMATS.filter((x) => x.kind === exportKind && x.modes.includes(state.mode))) {
+  for (const f of FORMATS.filter((x) => x.kind === exportKind)) {
     const option = new Option(unsupported.has(f.id) ? `${f.label} (not supported by this browser)` : f.label, f.id);
     option.disabled = unsupported.has(f.id);
     exportFormat.add(option);
@@ -681,19 +655,6 @@ bindParams('look-controls', 'reset-look', LOOK_PARAMS);
 bindParams('space-controls', 'reset-space', SPACE_PARAMS);
 $('recenter').addEventListener('click', updateAndFrame);
 
-for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="mode"]')) {
-  radio.addEventListener('change', () => radio.checked && setMode(radio.value as Mode));
-}
-
-for (const key of ['guides', 'inspect'] as const) {
-  const box = $<HTMLInputElement>(key);
-  box.checked = state[key];
-  box.addEventListener('change', () => {
-    state[key] = box.checked;
-    update();
-  });
-}
-
 // 'ink' colours follow the theme.
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   refreshScope();
@@ -701,6 +662,6 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 });
 
 refreshScope();
-setMode(state.mode);
+refreshExportFormats();
 useFont(state.fontId);
 requestAnimationFrame(tick);

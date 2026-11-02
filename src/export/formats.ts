@@ -4,15 +4,12 @@
  */
 
 export type ExportKind = 'image' | 'animation';
-export type ViewMode = '2d' | '3d';
 
 export interface ExportFormat {
   id: string;
   label: string;
   kind: ExportKind;
   extension: string;
-  /** Views it can be made from. */
-  modes: ViewMode[];
   /** Can keep a transparent background. */
   alpha: boolean;
   /** Short explanation shown under the format menu. */
@@ -20,23 +17,21 @@ export interface ExportFormat {
 }
 
 export const FORMATS: ExportFormat[] = [
-  { id: 'png', label: 'PNG', kind: 'image', extension: 'png', modes: ['2d', '3d'], alpha: true,
+  { id: 'png', label: 'PNG', kind: 'image', extension: 'png', alpha: true,
     note: 'Sharp image, keeps transparency.' },
-  { id: 'jpg', label: 'JPG', kind: 'image', extension: 'jpg', modes: ['2d', '3d'], alpha: false,
+  { id: 'jpg', label: 'JPG', kind: 'image', extension: 'jpg', alpha: false,
     note: 'Light image for sharing; no transparency.' },
-  { id: 'webp', label: 'WebP', kind: 'image', extension: 'webp', modes: ['2d', '3d'], alpha: true,
+  { id: 'webp', label: 'WebP', kind: 'image', extension: 'webp', alpha: true,
     note: 'Light image for the web, keeps transparency.' },
-  { id: 'svg', label: 'SVG (vector)', kind: 'image', extension: 'svg', modes: ['2d'], alpha: true,
-    note: 'Vector file for Illustrator, Figma, Inkscape or print. Letters are outlines.' },
-  { id: 'glb', label: 'GLB (3D model)', kind: 'image', extension: 'glb', modes: ['3d'], alpha: true,
+  { id: 'glb', label: 'GLB (3D model)', kind: 'image', extension: 'glb', alpha: true,
     note: 'The 3D word as a model, with its materials, for Blender, Cinema 4D, After Effects, three.js…' },
-  { id: 'mp4', label: 'MP4 video', kind: 'animation', extension: 'mp4', modes: ['2d', '3d'], alpha: false,
+  { id: 'mp4', label: 'MP4 video', kind: 'animation', extension: 'mp4', alpha: false,
     note: 'Plays everywhere (phones, social networks, editing software).' },
-  { id: 'webm', label: 'WebM video', kind: 'animation', extension: 'webm', modes: ['2d', '3d'], alpha: false,
+  { id: 'webm', label: 'WebM video', kind: 'animation', extension: 'webm', alpha: false,
     note: 'Open video format for the web.' },
-  { id: 'gif', label: 'Animated GIF', kind: 'animation', extension: 'gif', modes: ['2d', '3d'], alpha: false,
+  { id: 'gif', label: 'Animated GIF', kind: 'animation', extension: 'gif', alpha: false,
     note: 'Loops everywhere; limited to 256 colours and kept under 720 px for a reasonable file size.' },
-  { id: 'png-sequence', label: 'PNG sequence (ZIP)', kind: 'animation', extension: 'zip', modes: ['2d', '3d'], alpha: true,
+  { id: 'png-sequence', label: 'PNG sequence (ZIP)', kind: 'animation', extension: 'zip', alpha: true,
     note: 'One PNG per frame, with transparency: for compositing in After Effects, Premiere, DaVinci, Blender…' },
 ];
 

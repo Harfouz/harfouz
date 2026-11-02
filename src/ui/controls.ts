@@ -1,5 +1,6 @@
 import type { ParamDef } from '../params/schema';
 import { inkOf } from '../render/look';
+import { buildGradientEditor } from './gradientEditor';
 
 type Value = number | string;
 
@@ -21,7 +22,7 @@ export interface ControlBinding {
 }
 
 function formatValue(def: ParamDef, value: Value): string {
-  if (def.kind === 'choice') return '';
+  if (def.kind === 'choice' || def.kind === 'gradient') return '';
   if (def.kind === 'color') return value === 'ink' ? 'ink' : String(value);
   const n = Number(value);
   const digits = def.step < 1 ? 1 : 0;
@@ -91,6 +92,14 @@ export function buildControls(container: HTMLElement, defs: readonly ParamDef[],
         output.value = formatValue(def, value);
       };
       row.append(output, input);
+    } else if (def.kind === 'gradient') {
+      const editor = buildGradientEditor(
+        id,
+        () => String(binding.get(def.key)),
+        (value) => binding.set(def.key, value),
+      );
+      refreshInput = editor.refresh;
+      row.appendChild(editor.element);
     } else {
       const select = document.createElement('select');
       select.id = id;

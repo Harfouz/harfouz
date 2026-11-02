@@ -16,13 +16,20 @@ export interface ShowIf {
   equals?: string;
   notEquals?: string;
   oneOf?: readonly string[];
+  /** Only check this condition at this level (word or letter); elsewhere it always passes. */
+  level?: ParamScope;
 }
 
 /** Is a parameter with this condition visible, given the current values? */
-export function isShown(def: { showIf?: ShowIf | ShowIf[] }, get: (key: string) => unknown): boolean {
+export function isShown(
+  def: { showIf?: ShowIf | ShowIf[] },
+  get: (key: string) => unknown,
+  level: ParamScope = 'word',
+): boolean {
   if (!def.showIf) return true;
   const conditions = Array.isArray(def.showIf) ? def.showIf : [def.showIf];
   return conditions.some((c) => {
+    if (c.level && c.level !== level) return true;
     const v = String(get(c.key));
     if (c.equals !== undefined && v !== c.equals) return false;
     if (c.notEquals !== undefined && v === c.notEquals) return false;
@@ -67,7 +74,16 @@ export interface ColorParam extends BaseParam {
   default: string;
 }
 
-export type ParamDef = RangeParam | ChoiceParam | ColorParam;
+/**
+ * A gradient: colour stops along a direction. Stored as JSON text
+ * (`GradientStop[]`, see render/look.ts) so it fits the parameter system.
+ */
+export interface GradientParam extends BaseParam {
+  kind: 'gradient';
+  default: string;
+}
+
+export type ParamDef = RangeParam | ChoiceParam | ColorParam | GradientParam;
 
 export const SHAPE_PARAMS = [
   {
@@ -184,7 +200,6 @@ export type MaterialId = (typeof MATERIALS)[number];
 export const LOOK_PARAMS = [
   {
     kind: 'choice', key: 'material', label: 'Material', default: 'satin',
-    hint: 'In 2D, materials become flat looks: outline, relief or paper grain.',
     options: [
       { value: 'satin', label: 'Satin relief' },
       { value: 'clay', label: 'Clay' },
@@ -198,17 +213,29 @@ export const LOOK_PARAMS = [
     kind: 'choice', key: 'fill', label: 'Colour mode', default: 'solid', scope: 'word',
     options: [
       { value: 'solid', label: 'Solid' },
-      { value: 'gradient', label: 'Gradient along the word' },
+      { value: 'gradient', label: 'Gradient' },
       { value: 'palette', label: 'One colour per letter' },
     ],
   },
   {
     kind: 'color', key: 'color', label: 'Colour', default: 'ink',
     hint: 'On a letter, overrides the colour mode for that letter.',
+    // On the word it only matters in solid mode; a letter can always have its own.
+    showIf: { key: 'fill', equals: 'solid', level: 'word' },
   },
   {
-    kind: 'color', key: 'color2', label: 'Gradient end', default: '#c0412b', scope: 'word',
+    kind: 'gradient', key: 'gradient', label: 'Gradient', scope: 'word',
+    default: JSON.stringify([
+      { pos: 0, color: '#c0412b' },
+      { pos: 1, color: 'ink' },
+    ]),
+    hint: 'Drag a colour to move it. Click the bar to add a colour.',
     showIf: { key: 'fill', equals: 'gradient' },
+  },
+  {
+    kind: 'range', key: 'gradientAngle', label: 'Gradient direction', min: -180, max: 180, step: 1, default: 0, unit: '°',
+    scope: 'word', showIf: { key: 'fill', equals: 'gradient' },
+    hint: '0°: left to right. 90°: bottom to top. Can be animated.',
   },
   {
     kind: 'choice', key: 'palette', label: 'Palette', default: 'manuscript', scope: 'word',
@@ -244,7 +271,9 @@ export interface LookParams {
   material: MaterialId;
   fill: 'solid' | 'gradient' | 'palette';
   color: string;
-  color2: string;
+  /** JSON list of { pos, color } stops. */
+  gradient: string;
+  gradientAngle: number;
   palette: string;
   texture: 'none' | TextureId;
   textureScale: number;

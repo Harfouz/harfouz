@@ -16,14 +16,14 @@ Harfouz is made for designers, animators and type lovers. Its one rule: **the Ar
 
 **Shape**: weight, slant, kashida (real tatweel insertion, reshaped, never splitting lam-alef), width, spacing that never breaks a join, and organic distortion.
 
-**Colour, material and texture**: solid, gradient along the word, or one colour per letter from curated palettes. Six materials: satin, clay, paper, metal, glass and outline only. 17 textures generated in code, to combine with any material:
+**Colour, material and texture**: solid, gradient (as many colours as you like, positioned and oriented freely), or one colour per letter from curated palettes. Six materials: satin, clay, paper, metal, glass and outline only. 17 textures generated in code, to combine with any material:
 - paper grain, paper fibres, linen;
 - marble, stone, rough rock, terrazzo;
 - brushed and hammered metal;
 - zellige tiles and khatam (8-pointed stars);
 - short fur, long hair, wool, leopard and zebra coats, reptile scales.
 
-In 3D, hairy textures **grow real fur**. In 2D, materials become relief, grain and outline looks, and textures are kept in SVG exports.
+Hairy textures **grow real fur**.
 
 **Space (3D)**: extruded letters with depth and bevel, in a lit scene with soft shadows and an orbit camera. Stagger, twist, spin, and per-letter push, lift, turn and tilt. **Connected letters stay attached**: the joining stroke bends and stretches instead of breaking.
 
@@ -36,8 +36,8 @@ In 3D, hairy textures **grow real fur**. In 2D, materials become relief, grain a
 | Images | Animations |
 |---|---|
 | PNG, WebP (transparent background possible), JPG | MP4, WebM |
-| SVG, vector (2D view) | Animated GIF |
-| GLB 3D model with materials (3D view) | ZIP of PNG frames with transparency |
+| GLB 3D model with materials | Animated GIF |
+| | ZIP of PNG frames with transparency |
 
 Animations are rendered frame by frame at exact moments of the loop, so they never drop frames.
 
@@ -75,21 +75,18 @@ Harfouz works in recent versions of Chrome, Edge, Firefox and Safari. MP4 and We
 
 ## How it works
 
-Everything flows through one pipeline. Each stage knows nothing about the next, which is what lets the same word be drawn as flat SVG or as 3D volumes.
+Everything flows through one pipeline. Each stage knows nothing about the next: shaping and modifiers work on flat outlines, and only the renderer turns them into 3D volumes.
 
 ```
 text ─▶ kashida ─▶ shaping ─▶ layout modifiers ─▶ geometry modifiers ─▶ renderer
-        (tatweels)  HarfBuzz   width, spacing      slant, distortion      SVG (2D)
-                                                                          three.js (3D)
+        (tatweels)  HarfBuzz   width, spacing      slant, distortion      three.js (3D)
 ```
 
 1. **Kashida** (`src/core/kashida.ts`) inserts tatweel characters between letters that connect, before shaping, so the font draws real elongations.
 2. **Shaping** (`src/core/shaping.ts`): [HarfBuzz](https://harfbuzz.github.io) picks each letter's contextual form, applies ligatures and positions diacritics. Glyph outlines come from [opentype.js](https://opentype.js.org).
 3. **Layout modifiers** (`src/modifiers/`) change positions letter by letter. Spacing only opens gaps where letters are *not* joined (`src/core/joining.ts` knows the Arabic joining rules).
 4. **Geometry modifiers** change the outlines themselves: shear for slant, and a seeded Perlin noise field for distortion, sampled in line space so joins move together.
-5. **Renderers** (`src/render/`) follow the same `Renderer` interface:
-   - `svg/SvgRenderer.ts` draws paths, with SVG filters for relief, grain and shadows;
-   - `three/ThreeRenderer.ts` extrudes each letter. `three/deform.ts` keeps connected letters attached: it finds where two letters meet, blends their placements around that point, and keeps the rest of each letter rigid.
+5. **The renderer** (`src/render/three/ThreeRenderer.ts`) extrudes each letter and diacritic. `three/deform.ts` keeps connected letters attached: it finds where two letters meet, blends their placements around that point, and keeps the rest of each letter rigid. It follows the `Renderer` interface (`src/render/Renderer.ts`), so another renderer could be plugged in later.
 
 Parameters are described once in `src/params/schema.ts`. The panel, per-letter overrides (`params/state.ts`) and animation (`params/animation.ts`) are all built from that list.
 
@@ -100,7 +97,7 @@ public/fonts/        The 12 typefaces, each with its OFL licence
 src/core/            Fonts, shaping, Arabic joining rules, kashida
 src/modifiers/       Width, spacing, slant, distortion
 src/params/          Parameter schema, per-letter state, animation
-src/render/          SVG and three.js renderers, colours and materials
+src/render/          three.js renderer, colours, materials, textures
 src/export/          Export formats and encoders
 src/ui/              Sliders, Arabic keyboard
 src/main.ts          Wires everything together

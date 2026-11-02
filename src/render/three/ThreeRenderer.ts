@@ -29,7 +29,7 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { Composition } from '../../core/types';
-import { inkOf, letterFill, resolveColor, textureOf } from '../look';
+import { inkOf, letterFill, parseGradient, resolveColor, textureOf } from '../look';
 import { HAIRY } from '../textures';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
@@ -49,18 +49,60 @@ export function shapesByLetter(comp: Composition): { letter: number; shapes: Sha
   return [...byLetter.entries()].sort(([a], [b]) => a - b).map(([letter, shapes]) => ({ letter, shapes }));
 }
 
+/** A gradient ready to paint: stops as three.js colours, and a direction. */
+interface PaintableGradient {
+  stops: { pos: number; color: Color }[];
+  /** Unit direction in the plane of the letters (font units, y up). */
+  dx: number;
+  dy: number;
+  /** Range of `x·dx + y·dy` over the word's box, mapped to 0 → 1. */
+  min: number;
+  max: number;
+}
+
+function prepareGradient(comp: Composition, value: string, angleDeg: number, ink: string): PaintableGradient {
+  const a = (angleDeg * Math.PI) / 180;
+  const dx = Math.cos(a);
+  const dy = Math.sin(a);
+  // Project the corners of the word's box: the gradient spans exactly the word.
+  const corners = [
+    [0, comp.descender],
+    [comp.width, comp.descender],
+    [0, comp.ascender],
+    [comp.width, comp.ascender],
+  ].map(([x, y]) => x * dx + y * dy);
+  return {
+    stops: parseGradient(value).map((s) => ({ pos: s.pos, color: new Color(resolveColor(s.color, ink)) })),
+    dx,
+    dy,
+    min: Math.min(...corners),
+    max: Math.max(...corners),
+  };
+}
+
 /**
- * Gradient along the word: colour each vertex by its horizontal position,
- * from `start` at the right edge (where Arabic reading begins) to `end` at
- * the left. `offsetX` brings the letter's local x back to line coordinates.
+ * Colour each vertex by its position along the gradient's direction,
+ * blending between the two stops around it. Painted before letters are
+ * moved in 3D, so a letter keeps the colour of its place in the word.
  */
-function paintGradient(geometry: BufferGeometry, offsetX: number, width: number, start: Color, end: Color) {
+function paintGradient(geometry: BufferGeometry, g: PaintableGradient) {
   const position = geometry.getAttribute('position');
   const colors = new Float32Array(position.count * 3);
   const c = new Color();
+  const span = Math.max(g.max - g.min, 1e-6);
+  const last = g.stops[g.stops.length - 1];
   for (let i = 0; i < position.count; i++) {
-    const t = Math.min(1, Math.max(0, 1 - (position.getX(i) + offsetX) / Math.max(width, 1)));
-    c.lerpColors(start, end, t).toArray(colors, i * 3);
+    const t = (position.getX(i) * g.dx + position.getY(i) * g.dy - g.min) / span;
+    if (t <= g.stops[0].pos) c.copy(g.stops[0].color);
+    else if (t >= last.pos) c.copy(last.color);
+    else {
+      let k = 1;
+      while (g.stops[k].pos < t) k++;
+      const from = g.stops[k - 1];
+      const to = g.stops[k];
+      c.lerpColors(from.color, to.color, to.pos === from.pos ? 0 : (t - from.pos) / (to.pos - from.pos));
+    }
+    c.toArray(colors, i * 3);
   }
   geometry.setAttribute('color', new BufferAttribute(colors, 3));
 }
@@ -169,7 +211,7 @@ export class ThreeRenderer implements Renderer {
     const rad = Math.PI / 180;
 
     const ink = inkOf(this.container ?? document.body);
-    const gradient = [new Color(resolveColor(word.color, ink)), new Color(resolveColor(word.color2, ink))];
+    const gradient = prepareGradient(comp, word.gradient, word.gradientAngle, ink);
     this.clearWord();
 
     // 1. Every letter's volume. Extruding is the slow part, so volumes are
@@ -261,7 +303,7 @@ export class ThreeRenderer implements Renderer {
 
       // Colour first: the gradient follows the letter's place on the line.
       const fill = letterFill(word, p, readingOrder(index), ink);
-      if (fill === 'gradient') paintGradient(geometry, 0, comp.width, gradient[0], gradient[1]);
+      if (fill === 'gradient') paintGradient(geometry, gradient);
       const color = fill === 'gradient' ? null : fill;
 
       deformGeometry(geometry, index, frames, junctions, softness);
@@ -293,7 +335,9 @@ export class ThreeRenderer implements Renderer {
       if (p.material === 'outline') {
         // Keep the mesh for picking, but only draw its edges.
         mesh.visible = false;
-        const edges = new LineSegments(new EdgesGeometry(geometry, 20), this.materials.line(color));
+        const edgeGeometry = new EdgesGeometry(geometry, 20);
+        if (color === null) paintGradient(edgeGeometry, gradient);
+        const edges = new LineSegments(edgeGeometry, this.materials.line(color));
         edges.userData.letter = index;
         group.add(edges);
       }

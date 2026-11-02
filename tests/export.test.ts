@@ -4,20 +4,13 @@ import { finalSize, FORMATS } from '../src/export/formats';
 const format = (id: string) => FORMATS.find((f) => f.id === id)!;
 
 describe('export formats', () => {
-  it('offers images and animations for both views', () => {
-    for (const mode of ['2d', '3d'] as const) {
-      expect(FORMATS.some((f) => f.kind === 'image' && f.modes.includes(mode))).toBe(true);
-      expect(FORMATS.some((f) => f.kind === 'animation' && f.modes.includes(mode))).toBe(true);
-    }
-  });
-
-  it('only offers SVG from the 2D view and GLB from the 3D view', () => {
-    expect(format('svg').modes).toEqual(['2d']);
-    expect(format('glb').modes).toEqual(['3d']);
+  it('offers images, a 3D model and animations', () => {
+    expect(FORMATS.filter((f) => f.kind === 'image').map((f) => f.id)).toEqual(['png', 'jpg', 'webp', 'glb']);
+    expect(FORMATS.filter((f) => f.kind === 'animation').map((f) => f.id)).toEqual(['mp4', 'webm', 'gif', 'png-sequence']);
   });
 
   it('knows which formats keep transparency', () => {
-    expect(FORMATS.filter((f) => f.alpha).map((f) => f.id)).toEqual(['png', 'webp', 'svg', 'glb', 'png-sequence']);
+    expect(FORMATS.filter((f) => f.alpha).map((f) => f.id)).toEqual(['png', 'webp', 'glb', 'png-sequence']);
   });
 
   it('gives video encoders even dimensions', () => {

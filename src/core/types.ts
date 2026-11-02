@@ -69,7 +69,7 @@ export interface GlyphShape {
   base: number;
   cluster: number;
   isMark: boolean;
-  /** Pen position and advance before geometric modifiers (used by the inspector). */
+  /** Pen position and advance before geometric modifiers (used to find joins in 3D). */
   x: number;
   advance: number;
   commands: PathCommand[];

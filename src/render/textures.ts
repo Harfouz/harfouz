@@ -3,8 +3,7 @@
  *
  * Every texture is a seamless square tile made of:
  * - `height`: a grey relief map (white = raised), used as a bump map in 3D,
- * - `albedo`: colour variations, multiplied with the letter's colour,
- * - `shade`: albedo × lighting of the relief, for flat (2D / SVG) rendering.
+ * - `albedo`: colour variations, multiplied with the letter's colour.
  *
  * Tiles wrap at their edges, so they repeat without visible seams.
  */
@@ -78,7 +77,6 @@ export interface TextureTile {
   size: number;
   height: HTMLCanvasElement;
   albedo: HTMLCanvasElement;
-  shade: HTMLCanvasElement;
   /**
    * Hairy textures only: one dot per hair, its grey level the hair's length
    * (white = longest). Used to grow fur in 3D.
@@ -175,41 +173,21 @@ function build(
 
   const hCanvas = canvas(size);
   const aCanvas = canvas(size);
-  const sCanvas = canvas(size);
   const hImg = hCanvas.getContext('2d')!.createImageData(size, size);
   const aImg = aCanvas.getContext('2d')!.createImageData(size, size);
-  const sImg = sCanvas.getContext('2d')!.createImageData(size, size);
-
-  // Light from the top left, as in the 3D scene.
-  const L = [-0.5, 0.6, 0.62];
-  const at = (x: number, y: number) => hData[((y + size) % size) * size + ((x + size) % size)];
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const i = y * size + x;
-      const h = hData[i];
-      const [r, g, b] = albedo(x / size, y / size, h, i);
-      // Normal from the slope of the relief (wrapped, so the tile still tiles).
-      const k = 6;
-      const nx = (at(x - 1, y) - at(x + 1, y)) * k;
-      const ny = (at(x, y + 1) - at(x, y - 1)) * k;
-      const len = Math.hypot(nx, ny, 1);
-      const light = Math.max(0, (nx * L[0] + ny * L[1] + L[2]) / len) / L[2];
-      const shade = Math.min(1.25, 0.35 + 0.65 * light);
-      const p = i * 4;
-      hImg.data[p] = hImg.data[p + 1] = hImg.data[p + 2] = Math.round(h * 255);
-      aImg.data[p] = Math.round(r * 255);
-      aImg.data[p + 1] = Math.round(g * 255);
-      aImg.data[p + 2] = Math.round(b * 255);
-      sImg.data[p] = Math.min(255, Math.round(r * shade * 255));
-      sImg.data[p + 1] = Math.min(255, Math.round(g * shade * 255));
-      sImg.data[p + 2] = Math.min(255, Math.round(b * shade * 255));
-      hImg.data[p + 3] = aImg.data[p + 3] = sImg.data[p + 3] = 255;
-    }
+  for (let i = 0; i < size * size; i++) {
+    const h = hData[i];
+    const [r, g, b] = albedo((i % size) / size, Math.floor(i / size) / size, h, i);
+    const p = i * 4;
+    hImg.data[p] = hImg.data[p + 1] = hImg.data[p + 2] = Math.round(h * 255);
+    aImg.data[p] = Math.round(r * 255);
+    aImg.data[p + 1] = Math.round(g * 255);
+    aImg.data[p + 2] = Math.round(b * 255);
+    hImg.data[p + 3] = aImg.data[p + 3] = 255;
   }
   hCanvas.getContext('2d')!.putImageData(hImg, 0, 0);
   aCanvas.getContext('2d')!.putImageData(aImg, 0, 0);
-  sCanvas.getContext('2d')!.putImageData(sImg, 0, 0);
-  return { size, height: hCanvas, albedo: aCanvas, shade: sCanvas };
+  return { size, height: hCanvas, albedo: aCanvas };
 }
 
 /** Grey values drawn with the canvas API (strokes, shapes), read back as a height field. */
@@ -647,14 +625,3 @@ export function textureTile(id: TextureId): TextureTile {
   return tile;
 }
 
-const shadeUrls = new Map<TextureId, string>();
-
-/** The flat (2D) version of a tile as a compact data URL, for SVG filters. */
-export function shadeDataUrl(id: TextureId): string {
-  let url = shadeUrls.get(id);
-  if (!url) {
-    url = textureTile(id).shade.toDataURL('image/jpeg', 0.88);
-    shadeUrls.set(id, url);
-  }
-  return url;
-}

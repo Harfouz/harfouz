@@ -15,12 +15,6 @@ export interface RenderInput {
   order: (index: number) => number;
   /** Letter currently being edited, or null when editing the whole word. */
   selected: number | null;
-  /** Draw baseline and ascender/descender guides (2D only). */
-  guides: boolean;
-  /** Debug view: glyph boxes plus the browser's own rendering as a reference (2D only). */
-  inspect: boolean;
-  /** CSS font-family used for the inspect reference overlay. */
-  referenceFontFamily: string;
   /**
    * Changes whenever something that shapes the letters changes. While it
    * stays the same (e.g. only placement is animated), a renderer may reuse
@@ -30,9 +24,10 @@ export interface RenderInput {
 }
 
 /**
- * The contract every renderer follows. SvgRenderer draws flat vector
- * letters, ThreeRenderer draws them as volumes in a 3D scene. Shaping and
- * modifiers don't know which one is used.
+ * The contract a renderer follows. ThreeRenderer draws the letters as
+ * volumes in a 3D scene; shaping and modifiers don't depend on it, so
+ * another renderer (WebGPU, custom shaders…) could implement the same
+ * interface.
  */
 export interface Renderer {
   mount(container: HTMLElement): void;

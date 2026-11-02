@@ -79,8 +79,8 @@ export function loadFont(id: FontId): Promise<LoadedFont> {
         return res.arrayBuffer();
       })
       .then((bytes) => {
-        // Also make the font available to CSS (the 2D inspector compares
-        // against the browser's own rendering).
+        // Also make the font available to the page (the optional
+        // "Made with Harfouz" mark on exports is drawn with it).
         if (typeof FontFace !== 'undefined') {
           const face = new FontFace(cssFamily(entry.id), bytes.slice(0));
           document.fonts.add(face);

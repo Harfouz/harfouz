@@ -11,7 +11,7 @@ import {
   type VideoCodec,
 } from 'mediabunny';
 import type { ExportFormat } from './formats';
-import { drawMark, SIGNATURE, signGif, signGlb, signJpeg, signPng, signSvg } from './signature';
+import { drawMark, SIGNATURE, signGif, signGlb, signJpeg, signPng } from './signature';
 
 /** What the exporter needs from the app: pictures of the artwork. */
 export interface FrameSource {
@@ -20,8 +20,6 @@ export interface FrameSource {
    * this size. `background` is a CSS colour, or null for transparent.
    */
   frame(t: number, width: number, height: number, background: string | null): Promise<HTMLCanvasElement>;
-  /** The 2D artwork as an SVG document. */
-  svg(background: string | null): string;
   /** The 3D word as a binary glTF model. */
   glb(): Promise<ArrayBuffer>;
 }
@@ -88,8 +86,6 @@ export async function runExport(source: FrameSource, job: ExportJob): Promise<Bl
     case 'webp':
       // WebP has no simple comment field; the visible mark is the only credit here.
       return canvasBlob(await frameAt(job.t), 'image/webp', 0.95);
-    case 'svg':
-      return new Blob([signSvg(source.svg(background), job.mark)], { type: 'image/svg+xml' });
     case 'glb':
       return new Blob([signGlb(await source.glb())], { type: 'model/gltf-binary' });
   }

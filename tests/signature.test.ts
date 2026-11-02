@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SIGNATURE, signGif, signGlb, signJpeg, signPng, signSvg } from '../src/export/signature';
+import { SIGNATURE, signGif, signGlb, signJpeg, signPng } from '../src/export/signature';
 
 const fromBase64 = (b64: string) => Uint8Array.from(Buffer.from(b64, 'base64'));
 const text = (bytes: Uint8Array) => Buffer.from(bytes).toString('latin1');
@@ -80,12 +80,4 @@ describe('invisible "Made with Harfouz" credit', () => {
     expect([...new Uint8Array(signed.buffer, 20 + jsonLength + 8, 4)]).toEqual([1, 2, 3, 4]);
   });
 
-  it('SVG: metadata, plus a visible mark only when asked', () => {
-    const svg = '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><path d="M0 0"/></svg>';
-    const quiet = signSvg(svg, false);
-    expect(quiet).toContain(`<metadata>${SIGNATURE}</metadata>`);
-    expect(quiet).not.toContain('<text');
-    const marked = signSvg(svg, true);
-    expect(marked).toContain('Made with Harfouz</text></svg>');
-  });
 });

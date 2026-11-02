@@ -4,7 +4,7 @@ Thank you for helping. Harfouz is for designers, animators and developers alike:
 
 ## Ways to help
 
-- **Report a problem.** Open an issue with the word you typed, the typeface, the settings, and a screenshot. For shaping problems (a letter in the wrong form, a misplaced diacritic), switch to the 2D view and turn on *Inspect shaping*: it overlays the browser's own rendering in red, which helps tell a Harfouz bug from a font quirk.
+- **Report a problem.** Open an issue with the word you typed, the typeface, the settings, and a screenshot. For shaping problems (a letter in the wrong form, a misplaced diacritic), say whether the same word looks right in another app with the same typeface: it helps tell a Harfouz bug from a font quirk.
 - **Suggest or add a typeface** (see below).
 - **Add a material, a palette or a motion preset.**
 - **Translate the interface.** It is in English today. Arabic, French and other languages would be great.
@@ -39,7 +39,7 @@ Every change must keep the Arabic correct. In practice:
 | Change how text is shaped | `src/core/shaping.ts`, `src/core/kashida.ts`, `src/core/joining.ts` |
 | Add or change a slider | `src/params/schema.ts` (the panel, per-letter editing and animation are built from it) |
 | Add a deformation | `src/modifiers/` (and register it in `src/modifiers/index.ts`) |
-| Add a 3D material | `src/render/three/materials.ts`, its 2D look in `src/render/svg/looks.ts`, its name in `LOOK_PARAMS` |
+| Add a 3D material | `src/render/three/materials.ts` and its name in `LOOK_PARAMS` |
 | Add a texture | `src/render/textures.ts` (a generator, a label and a tile size); it appears in the menu automatically |
 | Add a colour palette | `PALETTES` in `src/render/look.ts` and the `palette` options in `src/params/schema.ts` |
 | Add a motion preset | `MOTION_PRESETS` in `src/params/animation.ts` |

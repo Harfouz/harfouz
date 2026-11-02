@@ -24,12 +24,52 @@ export function inkOf(element: Element): string {
     .join('')}`;
 }
 
+/** One colour of a gradient; `pos` goes from 0 (start) to 1 (end). */
+export interface GradientStop {
+  pos: number;
+  color: string;
+}
+
+/** Read a gradient value: stops sorted by position (at least two). */
+export function parseGradient(value: string): GradientStop[] {
+  try {
+    const stops = (JSON.parse(value) as GradientStop[])
+      .filter((s) => typeof s.color === 'string' && Number.isFinite(s.pos))
+      .map((s) => ({ pos: Math.min(1, Math.max(0, s.pos)), color: s.color }))
+      .sort((a, b) => a.pos - b.pos);
+    if (stops.length >= 2) return stops;
+    if (stops.length === 1) return [stops[0], { ...stops[0], pos: 1 }];
+  } catch {
+    // Fall through to the default.
+  }
+  return [
+    { pos: 0, color: '#c0412b' },
+    { pos: 1, color: 'ink' },
+  ];
+}
+
+const hexToRgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+/** The colour at position t (0 → 1), as #rrggbb (used to add a stop where you click). */
+export function gradientColorAt(stops: GradientStop[], t: number, ink: string): string {
+  const after = stops.findIndex((s) => s.pos >= t);
+  if (after <= 0) return resolveColor(stops[Math.max(0, after)].color, ink);
+  if (after === -1) return resolveColor(stops[stops.length - 1].color, ink);
+  const a = stops[after - 1];
+  const b = stops[after];
+  const k = b.pos === a.pos ? 0 : (t - a.pos) / (b.pos - a.pos);
+  const [ra, ga, ba] = hexToRgb(resolveColor(a.color, ink));
+  const [rb, gb, bb] = hexToRgb(resolveColor(b.color, ink));
+  const mix = (x: number, y: number) => Math.round(x + (y - x) * k).toString(16).padStart(2, '0');
+  return `#${mix(ra, rb)}${mix(ga, gb)}${mix(ba, bb)}`;
+}
+
 /**
  * The colour of one letter:
  * - a colour the letter overrides wins,
  * - otherwise the word's colour mode decides: one solid colour, a palette
- *   colour picked by reading order, or 'gradient' (the renderer blends
- *   `word.color` → `word.color2` from the start of the word to its end).
+ *   colour picked by reading order, or 'gradient' (the renderer colours the
+ *   letters along the word's gradient, see `word.gradient`).
  */
 export function letterFill(word: Params, letter: Params, order: number, ink: string): string | 'gradient' {
   if (letter.color !== word.color) return resolveColor(letter.color, ink);

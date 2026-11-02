@@ -81,3 +81,39 @@ describe('texture catalogue', () => {
     for (const t of HAIRY) expect(TEXTURES).toContain(t);
   });
 });
+
+describe('gradients', () => {
+  it('reads stops, sorted by position and kept between 0 and 1', async () => {
+    const { parseGradient } = await import('../src/render/look');
+    const stops = parseGradient(JSON.stringify([
+      { pos: 1.4, color: '#000000' },
+      { pos: 0.5, color: '#ff0000' },
+      { pos: -1, color: '#ffffff' },
+    ]));
+    expect(stops.map((s) => s.pos)).toEqual([0, 0.5, 1]);
+    expect(stops.map((s) => s.color)).toEqual(['#ffffff', '#ff0000', '#000000']);
+  });
+
+  it('falls back to a two-colour gradient when the value is broken', async () => {
+    const { parseGradient } = await import('../src/render/look');
+    expect(parseGradient('not json')).toHaveLength(2);
+    expect(parseGradient(JSON.stringify([{ pos: 0.3, color: '#123456' }]))).toHaveLength(2);
+  });
+
+  it('gives the colour at any position, blending between neighbouring stops', async () => {
+    const { gradientColorAt } = await import('../src/render/look');
+    const stops = [
+      { pos: 0, color: '#000000' },
+      { pos: 0.5, color: '#ff0000' },
+      { pos: 1, color: 'ink' },
+    ];
+    expect(gradientColorAt(stops, 0.25, INK)).toBe('#800000');
+    expect(gradientColorAt(stops, 0.5, INK)).toBe('#ff0000');
+    expect(gradientColorAt(stops, 1, INK)).toBe(INK);
+  });
+
+  it('a gradient direction can be animated', async () => {
+    const { isAnimatable } = await import('../src/params/animation');
+    expect(isAnimatable('gradientAngle')).toBe(true);
+  });
+});
