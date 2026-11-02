@@ -153,7 +153,7 @@ export class ThreeRenderer implements Renderer {
   private container?: HTMLElement;
   private resizeObserver = new ResizeObserver(() => this.resize());
   private needsFraming = true;
-  private selection = new Box3Helper(new Box3(), 0xc0412b);
+  private selection = new Box3Helper(new Box3(), 0xa66bff);
   private raycaster = new Raycaster();
   onPick?: (letter: number | null) => void;
 
