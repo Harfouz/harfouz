@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { gradientColorAt, inkOf, parseGradient, resolveColor, type GradientStop } from '../render/look';
 
 /**
@@ -15,11 +16,12 @@ export function buildGradientEditor(
 ): { element: HTMLElement; refresh: () => void } {
   const root = document.createElement('div');
   root.className = 'gradient-editor';
+  // The bar maps left → right on the word, whatever the interface direction.
+  root.dir = 'ltr';
 
   const bar = document.createElement('div');
   bar.className = 'gradient-editor__bar';
   bar.id = id;
-  bar.title = 'Click to add a colour';
   const handles = document.createElement('div');
   handles.className = 'gradient-editor__handles';
 
@@ -28,13 +30,11 @@ export function buildGradientEditor(
   const swatch = document.createElement('input');
   swatch.type = 'color';
   swatch.className = 'swatch';
-  swatch.setAttribute('aria-label', 'Colour of the selected stop');
   const position = document.createElement('output');
   position.className = 'control__value';
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'link-button';
-  remove.textContent = 'Remove colour';
   details.append(swatch, position, remove);
 
   root.append(bar, handles, details);
@@ -99,6 +99,9 @@ export function buildGradientEditor(
 
   function refresh() {
     if (dragging) return;
+    bar.title = t('gradient.add', 'Click to add a colour');
+    swatch.setAttribute('aria-label', t('gradient.swatch', 'Colour of the selected stop'));
+    remove.textContent = t('gradient.remove', 'Remove colour');
     const list = stops();
     selected = Math.min(selected, list.length - 1);
     paintBar(list);
@@ -111,7 +114,10 @@ export function buildGradientEditor(
         handle.style.left = `${stop.pos * 100}%`;
         handle.style.setProperty('--stop', resolveColor(stop.color, ink()));
         handle.setAttribute('aria-pressed', String(i === selected));
-        handle.setAttribute('aria-label', `Colour ${i + 1} at ${Math.round(stop.pos * 100)}%`);
+        handle.setAttribute(
+          'aria-label',
+          t('gradient.stop', 'Colour {n} at {pos}%', { n: i + 1, pos: Math.round(stop.pos * 100) }),
+        );
 
         // Drag to move; a press without moving just selects. The handle is
         // moved in place while dragging (rebuilding it would lose the drag),

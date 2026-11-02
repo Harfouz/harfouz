@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 /**
  * Arabic keyboard, so anyone can type Arabic whatever their own keyboard.
  *
@@ -67,20 +69,20 @@ export const ARABIC_LAYOUT: [code: string, base: string, shift: string][][] = [
   ],
 ];
 
-/** Diacritics and special letters, always one tap away. */
-export const HARAKAT: [char: string, name: string][] = [
-  ['َ', 'Fatha'],
-  ['ُ', 'Damma'],
-  ['ِ', 'Kasra'],
-  ['ْ', 'Sukun'],
-  ['ّ', 'Shadda'],
-  ['ً', 'Fathatan'],
-  ['ٌ', 'Dammatan'],
-  ['ٍ', 'Kasratan'],
-  ['ٰ', 'Dagger alef'],
-  ['ٔ', 'Hamza above'],
-  ['ـ', 'Tatweel (kashida)'],
-  ['ٱ', 'Alef wasla'],
+/** Diacritics and special letters, always one tap away: [character, translation key, English name]. */
+export const HARAKAT: [char: string, key: string, name: string][] = [
+  ['َ', 'mark.fatha', 'Fatha'],
+  ['ُ', 'mark.damma', 'Damma'],
+  ['ِ', 'mark.kasra', 'Kasra'],
+  ['ْ', 'mark.sukun', 'Sukun'],
+  ['ّ', 'mark.shadda', 'Shadda'],
+  ['ً', 'mark.fathatan', 'Fathatan'],
+  ['ٌ', 'mark.dammatan', 'Dammatan'],
+  ['ٍ', 'mark.kasratan', 'Kasratan'],
+  ['ٰ', 'mark.daggerAlef', 'Dagger alef'],
+  ['ٔ', 'mark.hamzaAbove', 'Hamza above'],
+  ['ـ', 'mark.tatweel', 'Tatweel (kashida)'],
+  ['ٱ', 'mark.alefWasla', 'Alef wasla'],
 ];
 
 const KEYMAP = new Map(ARABIC_LAYOUT.flat().map(([code, base, shift]) => [code, { base, shift }]));
@@ -133,8 +135,12 @@ export function mapPhysicalKeys(input: HTMLInputElement, enabled: () => boolean)
   });
 }
 
-/** Build the on-screen keyboard inside `container`, typing into `input`. */
+/**
+ * Build the on-screen keyboard inside `container`, typing into `input`.
+ * Call again to rebuild it (e.g. after a change of interface language).
+ */
 export function buildKeyboard(container: HTMLElement, input: HTMLInputElement) {
+  container.replaceChildren();
   let shift = false;
   const keyButtons: { button: HTMLButtonElement; base: string; shift: string }[] = [];
 
@@ -153,8 +159,8 @@ export function buildKeyboard(container: HTMLElement, input: HTMLInputElement) {
   const harakat = document.createElement('div');
   harakat.className = 'kb-row kb-row--harakat';
   harakat.dir = 'rtl';
-  for (const [char, name] of HARAKAT) {
-    harakat.appendChild(key(display(char), () => insertAtCaret(input, char), 'kb-key--mark', name));
+  for (const [char, nameKey, name] of HARAKAT) {
+    harakat.appendChild(key(display(char), () => insertAtCaret(input, char), 'kb-key--mark', t(nameKey, name)));
   }
   container.appendChild(harakat);
 
@@ -167,7 +173,7 @@ export function buildKeyboard(container: HTMLElement, input: HTMLInputElement) {
           shift = !shift;
           shiftButton.setAttribute('aria-pressed', String(shift));
           for (const k of keyButtons) k.button.textContent = display(shift ? k.shift : k.base);
-        }, 'kb-key--wide', 'Shift: harakat and punctuation'),
+        }, 'kb-key--wide', t('keyboard.shift', 'Shift: harakat and punctuation')),
       );
     }
     for (const [, base, shifted] of row) {
@@ -183,12 +189,12 @@ export function buildKeyboard(container: HTMLElement, input: HTMLInputElement) {
   const bottom = document.createElement('div');
   bottom.className = 'kb-row kb-row--bottom';
   bottom.append(
-    key('Clear', () => {
+    key(t('keyboard.clear', 'Clear'), () => {
       input.value = '';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }, 'kb-key--wide'),
-    key('مسافة', () => insertAtCaret(input, ' '), 'kb-key--space', 'Space'),
-    key('⌫', () => deleteBeforeCaret(input), 'kb-key--wide', 'Delete'),
+    key('مسافة', () => insertAtCaret(input, ' '), 'kb-key--space', t('keyboard.space', 'Space')),
+    key('⌫', () => deleteBeforeCaret(input), 'kb-key--wide', t('keyboard.delete', 'Delete')),
   );
   container.appendChild(bottom);
 }

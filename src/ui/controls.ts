@@ -1,4 +1,5 @@
 import type { ParamDef } from '../params/schema';
+import { optionLabel, paramHint, paramLabel, t } from '../i18n';
 import { inkOf } from '../render/look';
 import { buildGradientEditor } from './gradientEditor';
 
@@ -23,7 +24,7 @@ export interface ControlBinding {
 
 function formatValue(def: ParamDef, value: Value): string {
   if (def.kind === 'choice' || def.kind === 'gradient') return '';
-  if (def.kind === 'color') return value === 'ink' ? 'ink' : String(value);
+  if (def.kind === 'color') return value === 'ink' ? t('ui.ink', 'ink') : String(value);
   const n = Number(value);
   const digits = def.step < 1 ? 1 : 0;
   return `${n.toFixed(digits)}${def.unit ?? ''}`;
@@ -45,8 +46,11 @@ export function buildControls(container: HTMLElement, defs: readonly ParamDef[],
     const label = document.createElement('label');
     label.className = 'control__label';
     label.htmlFor = id;
-    label.textContent = def.label;
-    label.title = [def.hint, 'Double-click to reset.'].filter(Boolean).join(' ');
+    // Texts are set in refresh(), so they follow the interface language.
+    const refreshLabel = () => {
+      label.textContent = paramLabel(def);
+      label.title = [paramHint(def), t('ui.doubleClickReset', 'Double-click to reset.')].filter(Boolean).join(' ');
+    };
     row.appendChild(label);
 
     let refreshInput: () => void;
@@ -110,6 +114,7 @@ export function buildControls(container: HTMLElement, defs: readonly ParamDef[],
         refresh();
       });
       refreshInput = () => {
+        def.options.forEach((o, i) => (select.options[i].text = optionLabel(def, o.value, o.label)));
         select.value = String(binding.get(def.key));
       };
       row.appendChild(select);
@@ -117,6 +122,7 @@ export function buildControls(container: HTMLElement, defs: readonly ParamDef[],
 
     const refreshExtra = binding.decorate?.(def, row);
     const refresh = () => {
+      refreshLabel();
       row.hidden = !binding.isAvailable(def);
       row.classList.toggle('is-modified', binding.isModified(def.key));
       refreshInput();

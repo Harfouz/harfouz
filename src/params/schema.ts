@@ -51,6 +51,8 @@ interface BaseParam {
    * colours). A list means "any of these".
    */
   showIf?: ShowIf | ShowIf[];
+  /** Translation key, when it isn't `param.<key>` (see src/i18n). */
+  i18n?: string;
 }
 
 export interface RangeParam extends BaseParam {

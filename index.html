@@ -1,8 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" translate="no">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Harfouz has its own language menu: no automatic browser translation. -->
+    <meta name="google" content="notranslate" />
     <meta name="description" content="Harfouz — an open-source parametric Arabic typography playground." />
     <title>Harfouz</title>
     <link rel="stylesheet" href="/src/styles/app.css" />
@@ -13,123 +15,124 @@
         <span class="brand__ar" lang="ar" dir="rtl">حرفوز</span>
         <span class="brand__lat">Harfouz</span>
       </div>
-      <p class="topbar__tag">parametric arabic type · v0.1</p>
+      <p class="topbar__tag" data-i18n="ui.tagline">parametric arabic type · v0.1</p>
+      <select id="language" class="lang-select" aria-label="Language" data-i18n-aria-label="ui.language"></select>
     </header>
 
     <main class="layout">
-      <section class="stage" aria-label="Artwork">
+      <section class="stage" aria-label="Artwork" data-i18n-aria-label="ui.artwork">
         <div class="artboard" id="artboard">
           <div class="view" id="view-3d"></div>
           <p class="status" id="status" role="status"></p>
-          <button type="button" class="stage-button" id="recenter" title="Bring the camera back in front of the word">
+          <button type="button" class="stage-button" id="recenter" title="Bring the camera back in front of the word" data-i18n-title="recenter.title">
             <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.2" /><path d="M8 1v3M8 12v3M1 8h3M12 8h3" /><circle cx="8" cy="8" r="5.2" fill="none" /></svg>
-            Recenter camera
+            <span data-i18n="recenter.label">Recenter camera</span>
           </button>
           <div class="transport">
-            <button type="button" class="transport__play" id="play" aria-label="Play" title="Play / pause (space)">
+            <button type="button" class="transport__play" id="play" aria-label="Play" title="Play / pause (space)" data-i18n-title="transport.title">
               <svg viewBox="0 0 16 16" aria-hidden="true"><path class="icon-play" d="M4 2.5v11l9-5.5z" /><path class="icon-pause" d="M4 2.5h3v11H4zM9 2.5h3v11H9z" /></svg>
             </button>
             <div class="transport__bar" aria-hidden="true"><span id="progress"></span></div>
           </div>
         </div>
-        <nav class="letterbar" aria-label="Choose what to edit">
-          <button type="button" class="letterbar__word" id="pick-word" aria-pressed="true">Whole word</button>
+        <nav class="letterbar" aria-label="Choose what to edit" data-i18n-aria-label="ui.chooseWhat">
+          <button type="button" class="letterbar__word" id="pick-word" aria-pressed="true" data-i18n="scope.word">Whole word</button>
           <div class="letterbar__letters" id="letters" dir="rtl"></div>
         </nav>
-        <div class="keyboard" id="keyboard" hidden aria-label="Arabic keyboard"></div>
+        <div class="keyboard" id="keyboard" hidden aria-label="Arabic keyboard" data-i18n-aria-label="keyboard.aria"></div>
       </section>
 
-      <aside class="panel" aria-label="Controls">
+      <aside class="panel" aria-label="Controls" data-i18n-aria-label="ui.controls">
         <div class="scope" id="scope">
-          <span class="scope__label">Editing</span>
-          <span class="scope__target" id="scope-target">Whole word</span>
-          <button type="button" class="link-button" id="reset-letter" hidden>Reset letter</button>
+          <span class="scope__label" data-i18n="scope.editing">Editing</span>
+          <span class="scope__target" id="scope-target"></span>
+          <button type="button" class="link-button" id="reset-letter" hidden data-i18n="scope.resetLetter">Reset letter</button>
         </div>
         <section class="panel__section">
-          <h2 class="panel__title"><span>01</span> Text</h2>
+          <h2 class="panel__title"><span>01</span> <span data-i18n="section.text">Text</span></h2>
           <label class="field">
-            <span class="field__label">Word or phrase</span>
+            <span class="field__label" data-i18n="text.word">Word or phrase</span>
             <input id="text" class="text-input" type="text" dir="rtl" lang="ar" autocomplete="off" spellcheck="false" />
           </label>
           <div class="typing">
-            <button type="button" class="button" id="toggle-keyboard" aria-pressed="false" aria-controls="keyboard">⌨ Arabic keyboard</button>
-            <label class="toggle" title="Each key types the Arabic letter found at the same place on an Arabic keyboard (Q → ض, A → ش…). Shift gives the harakat.">
-              <input type="checkbox" id="map-keys" checked /> <span>My keys type Arabic</span>
+            <button type="button" class="button" id="toggle-keyboard" aria-pressed="false" aria-controls="keyboard">⌨ <span data-i18n="keyboard.toggle">Arabic keyboard</span></button>
+            <label class="toggle" title="Each key types the Arabic letter found at the same place on an Arabic keyboard (Q → ض, A → ش…). Shift gives the harakat." data-i18n-title="keys.mapHint">
+              <input type="checkbox" id="map-keys" checked /> <span data-i18n="keys.map">My keys type Arabic</span>
             </label>
           </div>
-          <div class="chips" id="samples" aria-label="Sample words"></div>
+          <div class="chips" id="samples" aria-label="Sample words" data-i18n-aria-label="text.samples"></div>
           <label class="field">
-            <span class="field__label">Typeface</span>
+            <span class="field__label" data-i18n="text.typeface">Typeface</span>
             <select id="font" class="select"></select>
           </label>
         </section>
 
         <section class="panel__section">
           <div class="panel__head">
-            <h2 class="panel__title"><span>02</span> Shape</h2>
-            <button type="button" class="link-button" id="reset-shape">Reset</button>
+            <h2 class="panel__title"><span>02</span> <span data-i18n="section.shape">Shape</span></h2>
+            <button type="button" class="link-button" id="reset-shape" data-i18n="ui.reset">Reset</button>
           </div>
           <div class="controls" id="shape-controls"></div>
         </section>
 
         <section class="panel__section">
           <div class="panel__head">
-            <h2 class="panel__title"><span>03</span> Colour &amp; material</h2>
-            <button type="button" class="link-button" id="reset-look">Reset</button>
+            <h2 class="panel__title"><span>03</span> <span data-i18n="section.look">Colour &amp; material</span></h2>
+            <button type="button" class="link-button" id="reset-look" data-i18n="ui.reset">Reset</button>
           </div>
           <div class="controls" id="look-controls"></div>
         </section>
 
         <section class="panel__section">
           <div class="panel__head">
-            <h2 class="panel__title"><span>04</span> Space</h2>
-            <button type="button" class="link-button" id="reset-space">Reset</button>
+            <h2 class="panel__title"><span>04</span> <span data-i18n="section.space">Space</span></h2>
+            <button type="button" class="link-button" id="reset-space" data-i18n="ui.reset">Reset</button>
           </div>
           <div class="controls" id="space-controls"></div>
         </section>
 
         <section class="panel__section">
           <div class="panel__head">
-            <h2 class="panel__title"><span>05</span> Motion</h2>
-            <button type="button" class="link-button" id="stop-all">Remove all motion</button>
+            <h2 class="panel__title"><span>05</span> <span data-i18n="section.motion">Motion</span></h2>
+            <button type="button" class="link-button" id="stop-all" data-i18n="motion.removeAll">Remove all motion</button>
           </div>
           <label class="field">
-            <span class="field__label">Start from a preset</span>
+            <span class="field__label" data-i18n="motion.preset">Start from a preset</span>
             <select id="motion-preset" class="select"></select>
           </label>
           <div class="controls" id="clock-controls"></div>
-          <p class="hint">Click <span class="anim-glyph">∿</span> next to any slider to make it move. On a selected letter, the motion is only for that letter.</p>
+          <p class="hint"><span data-i18n="motion.hintBefore">Click</span> <span class="anim-glyph">∿</span> <span data-i18n="motion.hintAfter">next to any slider to make it move. On a selected letter, the motion is only for that letter.</span></p>
         </section>
 
         <section class="panel__section">
-          <h2 class="panel__title"><span>06</span> Export</h2>
-          <div class="segmented segmented--wide" role="radiogroup" aria-label="What to export">
-            <label><input type="radio" name="export-kind" value="image" checked /><span>Image</span></label>
-            <label><input type="radio" name="export-kind" value="animation" /><span>Animation</span></label>
+          <h2 class="panel__title"><span>06</span> <span data-i18n="section.export">Export</span></h2>
+          <div class="segmented segmented--wide" role="radiogroup" aria-label="What to export" data-i18n-aria-label="export.what">
+            <label><input type="radio" name="export-kind" value="image" checked /><span data-i18n="export.image">Image</span></label>
+            <label><input type="radio" name="export-kind" value="animation" /><span data-i18n="export.animation">Animation</span></label>
           </div>
           <label class="field">
-            <span class="field__label">Format</span>
+            <span class="field__label" data-i18n="export.format">Format</span>
             <select id="export-format" class="select"></select>
           </label>
           <p class="hint" id="export-note"></p>
           <label class="field">
-            <span class="field__label">Size</span>
+            <span class="field__label" data-i18n="export.size">Size</span>
             <select id="export-size" class="select"></select>
           </label>
           <div class="field">
-            <span class="field__label">Background</span>
+            <span class="field__label" data-i18n="export.background">Background</span>
             <div class="inline">
               <select id="export-background" class="select">
-                <option value="transparent">Transparent</option>
-                <option value="sheet">Same as the artboard</option>
-                <option value="custom">Custom colour</option>
+                <option value="transparent" data-i18n="export.bg.transparent">Transparent</option>
+                <option value="sheet" data-i18n="export.bg.sheet">Same as the artboard</option>
+                <option value="custom" data-i18n="export.bg.custom">Custom colour</option>
               </select>
               <input type="color" id="export-color" class="swatch" value="#f8f4ec" hidden />
             </div>
           </div>
           <div class="inline" data-export="animation" hidden>
             <label class="field">
-              <span class="field__label">Frames per second</span>
+              <span class="field__label" data-i18n="export.fps">Frames per second</span>
               <select id="export-fps" class="select">
                 <option value="24">24</option>
                 <option value="30" selected>30</option>
@@ -137,7 +140,7 @@
               </select>
             </label>
             <label class="field">
-              <span class="field__label">Loops</span>
+              <span class="field__label" data-i18n="export.loops">Loops</span>
               <select id="export-loops" class="select">
                 <option value="1" selected>1</option>
                 <option value="2">2</option>
@@ -145,13 +148,13 @@
               </select>
             </label>
           </div>
-          <label class="toggle" id="export-mark-row" title="Every file already carries an invisible “Made with Harfouz” note in its metadata. This adds a small visible one in a corner.">
-            <input type="checkbox" id="export-mark" /> <span>Add a small “Made with Harfouz” mark</span>
+          <label class="toggle" id="export-mark-row" title="Every file already carries an invisible “Made with Harfouz” note in its metadata. This adds a small visible one in a corner." data-i18n-title="export.markHint">
+            <input type="checkbox" id="export-mark" /> <span data-i18n="export.mark">Add a small “Made with Harfouz” mark</span>
           </label>
-          <button type="button" class="button button--primary" id="export-go">Export</button>
+          <button type="button" class="button button--primary" id="export-go" data-i18n="export.go">Export</button>
           <div class="export-progress" id="export-progress" hidden>
             <div class="export-progress__bar"><span id="export-bar"></span></div>
-            <button type="button" class="link-button" id="export-cancel">Cancel</button>
+            <button type="button" class="link-button" id="export-cancel" data-i18n="export.cancel">Cancel</button>
           </div>
           <p class="hint" id="export-status" role="status"></p>
         </section>

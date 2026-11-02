@@ -7,7 +7,7 @@ Thank you for helping. Harfouz is for designers, animators and developers alike:
 - **Report a problem.** Open an issue with the word you typed, the typeface, the settings, and a screenshot. For shaping problems (a letter in the wrong form, a misplaced diacritic), say whether the same word looks right in another app with the same typeface: it helps tell a Harfouz bug from a font quirk.
 - **Suggest or add a typeface** (see below).
 - **Add a material, a palette or a motion preset.**
-- **Translate the interface.** It is in English today. Arabic, French and other languages would be great.
+- **Translate the interface.** It is available in English, French, Arabic and Russian. Fixing a translation or adding a language is very welcome (see *Interface texts and languages* below).
 - **Improve the code**, the tests or this documentation.
 
 ## Setting up
@@ -47,6 +47,14 @@ Every change must keep the Arabic correct. In practice:
 | Write a new renderer (e.g. WebGPU, shaders) | Implement the `Renderer` interface in `src/render/Renderer.ts` |
 
 Lengths in parameters are in **thousandths of an em** (‰), so they behave the same in every typeface. Renderers convert them with the font's `unitsPerEm`.
+
+## Interface texts and languages
+
+English is written in the code, where it is used: `t('export.go', 'Export')`. Other languages are dictionaries in `src/i18n/` (`fr.ts`, `ar.ts`, `ru.ts`), from the same key to the translated text. Fixed texts of the page are marked in `index.html` with `data-i18n="key"` (or `data-i18n-title`, `data-i18n-aria-label`). Slider labels, hints and menu options come from `src/params/schema.ts` and are looked up as `param.<key>`, `param.<key>.hint` and `option.<key>.<value>`.
+
+When you add or change a text, add its key to every dictionary. `tests/i18n.test.ts` lists every key the interface uses and fails if one is missing, unknown, or loses a `{placeholder}`.
+
+To add a language: create `src/i18n/xx.ts` with every key, then add it to `LANGUAGES` and `DICTIONARIES` in `src/i18n/index.ts` (with `dir: 'rtl'` for a right-to-left language).
 
 ## Adding a typeface
 

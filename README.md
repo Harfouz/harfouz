@@ -10,6 +10,8 @@ Harfouz is made for designers, animators and type lovers. Its one rule: **the Ar
 
 ## What you can do
 
+**Interface in English, French, Arabic (right to left) and Russian.** Your choice is remembered.
+
 **Write**
 - Type in Arabic with any keyboard: an on-screen Arabic keyboard (with all the harakat), or your own keys typing Arabic by position (Q → ض, A → ش…), whatever your layout.
 - 12 open-source typefaces in five styles: Naskh, Kufi, Ruqaa, Sans and Display.

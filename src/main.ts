@@ -8,7 +8,6 @@ import {
   defaultAmount,
   isAnimatable,
   MOTION_PRESETS,
-  WAVES,
   type AnimConfig,
 } from './params/animation';
 import {
@@ -23,6 +22,8 @@ import {
 } from './params/schema';
 import { ParamState } from './params/state';
 import { ThreeRenderer } from './render/three/ThreeRenderer';
+import { animDefs, CLOCK_PARAMS } from './params/motionControls';
+import { getLanguage, LANGUAGES, onLanguageChange, savedLanguage, setLanguage, t, type Lang } from './i18n';
 import { buildControls } from './ui/controls';
 import { buildKeyboard, mapPhysicalKeys } from './ui/keyboard';
 import { canExportVideo, download, runExport, type FrameSource } from './export/exporter';
@@ -100,11 +101,15 @@ function update(forExport = false) {
       geometryKey,
     });
     if (!clock.playing) {
-      status.textContent = `${font.name} · ${composition.glyphs.length} glyphs · drag to orbit, scroll to zoom, right-drag to pan, click a letter to edit it`;
+      status.textContent = t(
+        'status.ready',
+        '{font} · {n} glyphs · drag to orbit, scroll to zoom, right-drag to pan, click a letter to edit it',
+        { font: font.name, n: composition.glyphs.length },
+      );
     }
   } catch (err) {
     console.error(err);
-    status.textContent = `Error: ${(err as Error).message}`;
+    status.textContent = t('status.error', 'Error: {message}', { message: (err as Error).message });
   }
   for (const chip of samples.children) {
     chip.setAttribute('aria-pressed', String((chip as HTMLElement).dataset.text === state.text));
@@ -197,7 +202,7 @@ function refreshScope() {
     chip.className = base === undefined ? 'letter-chip' : 'letter-chip letter-chip--mark';
     chip.lang = 'ar';
     chip.textContent = base === undefined ? label : markLabel(label);
-    chip.title = base === undefined ? `Edit this letter` : `Edit this diacritic on its own`;
+    chip.title = base === undefined ? t('letters.editLetter', 'Edit this letter') : t('letters.editMark', 'Edit this diacritic on its own');
     chip.setAttribute('aria-pressed', String(state.selected === index));
     chip.classList.toggle('has-overrides', params.hasOverrides(index));
     chip.addEventListener('click', () => select(state.selected === index ? null : index));
@@ -220,7 +225,7 @@ function refreshScope() {
     ar.lang = 'ar';
     if (current.base === undefined) {
       ar.textContent = current.label;
-      target.append('Letter ', ar);
+      target.append(t('scope.letter', 'Letter'), ' ', ar);
     } else {
       // "Diacritic ◌َ on ك"
       const on = document.createElement('span');
@@ -228,10 +233,12 @@ function refreshScope() {
       on.lang = 'ar';
       on.textContent = state.text[current.base];
       ar.textContent = markLabel(current.label);
-      target.append('Diacritic ', ar, ' on ', on);
+      // "Diacritic ◌َ on ك": the order of the parts can change between languages.
+      const [before, middle] = t('scope.markOn', 'Diacritic {mark} on {letter}').split(/\{mark\}|\{letter\}/);
+      target.append(before, ar, middle, on);
     }
   } else {
-    target.textContent = 'Whole word';
+    target.textContent = t('scope.word', 'Whole word');
   }
   $('reset-letter').hidden = !current || !params.hasOverrides(current.index);
   refreshers.forEach((r) => r());
@@ -279,41 +286,6 @@ function bindParams(containerId: string, resetId: string, defs: readonly ParamDe
 }
 
 // ── Motion ───────────────────────────────────────────────
-
-/** Settings of one parameter's motion, shown under its slider. */
-function animDefs(def: RangeParam): ParamDef[] {
-  const span = def.max - def.min;
-  const defs: ParamDef[] = [
-    { kind: 'range', key: `anim-${def.key}-amount`, label: 'Amount', min: -span, max: span, step: def.step, default: 0, unit: def.unit },
-    {
-      kind: 'choice',
-      key: `anim-${def.key}-wave`,
-      label: 'Wave',
-      default: 'sine',
-      options: [
-        { value: 'sine', label: 'Sine (smooth back and forth)' },
-        { value: 'triangle', label: 'Triangle (even speed)' },
-        { value: 'bounce', label: 'Bounce (hops)' },
-        { value: 'ramp', label: 'Ramp (keeps going: spins, drifts)' },
-        { value: 'noise', label: 'Noise (organic)' },
-      ].filter((o) => (WAVES as readonly string[]).includes(o.value)),
-    },
-    { kind: 'range', key: `anim-${def.key}-cycles`, label: 'Repeats per loop', min: 1, max: 8, step: 1, default: 1, unit: '×' },
-  ];
-  if (def.scope !== 'word') {
-    defs.push({
-      kind: 'range',
-      key: `anim-${def.key}-spread`,
-      label: 'Delay between letters',
-      min: 0,
-      max: 0.5,
-      step: 0.01,
-      default: 0,
-      hint: 'Each letter starts a little after the previous one: a ripple through the word.',
-    });
-  }
-  return defs;
-}
 
 /**
  * The ∿ button on a slider row, plus its settings panel. On the word it
@@ -369,12 +341,12 @@ function addAnimToggle(def: RangeParam, row: HTMLElement): () => void {
     button.setAttribute('aria-pressed', String(Boolean(own)));
     button.classList.toggle('is-inherited', Boolean(inherited));
     button.title = own
-      ? 'Moving. Click to stop.'
+      ? t('anim.moving', 'Moving. Click to stop.')
       : inherited
-        ? 'Moving with the whole word. Click to give this letter its own motion.'
+        ? t('anim.inherited', 'Moving with the whole word. Click to give this letter its own motion.')
         : state.selected === null
-          ? 'Make this move'
-          : 'Make this move, for this letter only';
+          ? t('anim.make', 'Make this move')
+          : t('anim.makeLetter', 'Make this move, for this letter only');
     panel.hidden = !own;
     if (own) refreshPanel();
   };
@@ -391,7 +363,7 @@ const progress = $('progress');
 function setPlaying(playing: boolean) {
   clock.playing = playing;
   playButton.setAttribute('aria-pressed', String(playing));
-  playButton.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  playButton.setAttribute('aria-label', playing ? t('transport.pause', 'Pause') : t('transport.play', 'Play'));
   if (!playing) update();
 }
 
@@ -416,13 +388,6 @@ addEventListener('keydown', (e) => {
   }
 });
 
-const CLOCK_PARAMS: ParamDef[] = [
-  { kind: 'range', key: 'speed', label: 'Speed', min: 0.1, max: 3, step: 0.05, default: 1, unit: '×' },
-  {
-    kind: 'range', key: 'loop', label: 'Loop length', min: 1, max: 20, step: 0.5, default: 4, unit: ' s',
-    hint: 'Every motion comes back to its start after one loop.',
-  },
-];
 buildControls($('clock-controls'), CLOCK_PARAMS, {
   get: (k) => clock[k as 'speed' | 'loop'],
   set: (k, v) => (clock[k as 'speed' | 'loop'] = Number(v)),
@@ -432,8 +397,11 @@ buildControls($('clock-controls'), CLOCK_PARAMS, {
 });
 
 const presetSelect = $<HTMLSelectElement>('motion-preset');
-presetSelect.add(new Option('Choose a motion…', ''));
-for (const [id, preset] of Object.entries(MOTION_PRESETS)) presetSelect.add(new Option(preset.label, id));
+function fillPresets() {
+  presetSelect.replaceChildren(new Option(t('motion.choose', 'Choose a motion…'), ''));
+  for (const [id, preset] of Object.entries(MOTION_PRESETS)) presetSelect.add(new Option(t(`preset.${id}`, preset.label), id));
+}
+fillPresets();
 presetSelect.addEventListener('change', () => {
   const preset = MOTION_PRESETS[presetSelect.value];
   presetSelect.value = '';
@@ -482,7 +450,12 @@ let exportKind: ExportKind = 'image';
 /** Video formats this browser can't encode. */
 const unsupported = new Set<string>();
 
-for (const size of SIZES) exportSize.add(new Option(size.label, size.id));
+function fillSizes() {
+  const previous = exportSize.value;
+  exportSize.replaceChildren(...SIZES.map((size) => new Option(t(`size.${size.id}`, size.label), size.id)));
+  if (previous) exportSize.value = previous;
+}
+fillSizes();
 
 function currentFormat() {
   return FORMATS.find((f) => f.id === exportFormat.value) ?? FORMATS[0];
@@ -493,7 +466,11 @@ function refreshExportFormats() {
   const previous = exportFormat.value;
   exportFormat.replaceChildren();
   for (const f of FORMATS.filter((x) => x.kind === exportKind)) {
-    const option = new Option(unsupported.has(f.id) ? `${f.label} (not supported by this browser)` : f.label, f.id);
+    const label = t(`format.${f.id}`, f.label);
+    const option = new Option(
+      unsupported.has(f.id) ? t('export.unsupported', '{format} (not supported by this browser)', { format: label }) : label,
+      f.id,
+    );
     option.disabled = unsupported.has(f.id);
     exportFormat.add(option);
   }
@@ -505,7 +482,7 @@ function refreshExportFormats() {
 function refreshExportOptions() {
   const format = currentFormat();
   exportStatus.textContent = '';
-  $('export-note').textContent = format.note;
+  $('export-note').textContent = t(`format.${format.id}.note`, format.note);
   const transparent = exportBackground.querySelector<HTMLOptionElement>('option[value="transparent"]')!;
   transparent.disabled = !format.alpha;
   if (!format.alpha && exportBackground.value === 'transparent') exportBackground.value = 'sheet';
@@ -559,21 +536,22 @@ $('export-go').addEventListener('click', async () => {
   );
 
   const wasPlaying = clock.playing;
-  const t = clock.t;
+  const startTime = clock.t;
   setPlaying(false);
   exportAbort = new AbortController();
   const button = $<HTMLButtonElement>('export-go');
   button.disabled = true;
   $('export-progress').hidden = format.kind !== 'animation';
   $('export-bar').style.width = '0';
-  exportStatus.textContent = format.kind === 'animation' ? 'Rendering frames…' : 'Exporting…';
+  exportStatus.textContent =
+    format.kind === 'animation' ? t('export.rendering', 'Rendering frames…') : t('export.exporting', 'Exporting…');
   try {
     const blob = await runExport(exportSource, {
       format,
       width,
       height,
       background: exportBackgroundColor(),
-      t,
+      t: startTime,
       fps: Number($<HTMLSelectElement>('export-fps').value),
       loops: Number($<HTMLSelectElement>('export-loops').value),
       loopSeconds: clock.loop,
@@ -585,17 +563,20 @@ $('export-go').addEventListener('click', async () => {
     download(blob, `harfouz-${state.fontId}-${stamp}.${format.extension}`);
     const kb = blob.size / 1024;
     const weight = kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb)} KB`;
-    const what = format.id === 'glb' ? `${format.label}, ${weight}` : `${format.label}, ${width} × ${height}, ${weight}`;
-    exportStatus.textContent = `Done: ${what}. Sharing it? Tag #harfouz so others can find the tool.`;
+    const name = t(`format.${format.id}`, format.label);
+    const what = format.id === 'glb' ? `${name}, ${weight}` : `${name}, ${width} × ${height}, ${weight}`;
+    exportStatus.textContent = t('export.done', 'Done: {what}. Sharing it? Tag #harfouz so others can find the tool.', { what });
   } catch (err) {
     exportStatus.textContent =
-      (err as Error).name === 'AbortError' ? 'Export cancelled.' : `Export failed: ${(err as Error).message}`;
+      (err as Error).name === 'AbortError'
+        ? t('export.cancelled', 'Export cancelled.')
+        : t('export.failed', 'Export failed: {message}', { message: (err as Error).message });
     console.error(err);
   } finally {
     button.disabled = false;
     $('export-progress').hidden = true;
     exportAbort = null;
-    clock.t = t;
+    clock.t = startTime;
     update();
     if (wasPlaying) setPlaying(true);
   }
@@ -642,13 +623,17 @@ for (const word of SAMPLES) {
 }
 
 // Typefaces grouped by style.
-for (const style of [...new Set(FONT_CATALOG.map((f) => f.style))]) {
-  const group = document.createElement('optgroup');
-  group.label = style;
-  for (const f of FONT_CATALOG.filter((x) => x.style === style)) group.appendChild(new Option(f.name, f.id));
-  fontSelect.appendChild(group);
+function fillFonts() {
+  fontSelect.replaceChildren();
+  for (const style of [...new Set(FONT_CATALOG.map((f) => f.style))]) {
+    const group = document.createElement('optgroup');
+    group.label = t(`style.${style}`, style);
+    for (const f of FONT_CATALOG.filter((x) => x.style === style)) group.appendChild(new Option(f.name, f.id));
+    fontSelect.appendChild(group);
+  }
+  fontSelect.value = state.fontId;
 }
-fontSelect.value = state.fontId;
+fillFonts();
 fontSelect.addEventListener('change', () => useFont(fontSelect.value as FontId));
 
 bindParams('shape-controls', 'reset-shape', SHAPE_PARAMS);
@@ -662,6 +647,25 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   update();
 });
 
+// ── Interface language ───────────────────────────────────
+
+const languageSelect = $<HTMLSelectElement>('language');
+for (const lang of LANGUAGES) languageSelect.add(new Option(lang.name, lang.id));
+languageSelect.addEventListener('change', () => setLanguage(languageSelect.value as Lang));
+
+onLanguageChange(() => {
+  languageSelect.value = getLanguage();
+  buildKeyboard($('keyboard'), textInput);
+  fillFonts();
+  fillPresets();
+  fillSizes();
+  refreshExportFormats();
+  refreshScope();
+  setPlaying(clock.playing);
+  update();
+});
+
+setLanguage(savedLanguage());
 refreshScope();
 refreshExportFormats();
 useFont(state.fontId);
