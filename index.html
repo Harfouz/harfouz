@@ -21,6 +21,10 @@
         <div class="artboard" id="artboard">
           <div class="view" id="view-3d"></div>
           <p class="status" id="status" role="status"></p>
+          <button type="button" class="stage-button" id="recenter" title="Bring the camera back in front of the word">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.2" /><path d="M8 1v3M8 12v3M1 8h3M12 8h3" /><circle cx="8" cy="8" r="5.2" fill="none" /></svg>
+            Recenter camera
+          </button>
           <div class="transport">
             <button type="button" class="transport__play" id="play" aria-label="Play" title="Play / pause (space)">
               <svg viewBox="0 0 16 16" aria-hidden="true"><path class="icon-play" d="M4 2.5v11l9-5.5z" /><path class="icon-pause" d="M4 2.5h3v11H4zM9 2.5h3v11H9z" /></svg>
@@ -82,7 +86,6 @@
             <button type="button" class="link-button" id="reset-space">Reset</button>
           </div>
           <div class="controls" id="space-controls"></div>
-          <button type="button" class="button" id="recenter">Recenter camera</button>
         </section>
 
         <section class="panel__section">
