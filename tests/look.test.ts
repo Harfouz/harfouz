@@ -158,3 +158,30 @@ describe('gradients', () => {
     expect(isAnimatable('gradientAngle')).toBe(true);
   });
 });
+
+describe('artboard background', async () => {
+  const { backdropCss, backdropOf, backdropTone } = await import('../src/render/backdrop');
+  const { BACKGROUND_PARAMS, defaultsOf } = await import('../src/params/schema');
+  const base = defaultsOf<import('../src/params/schema').BackgroundParams>(BACKGROUND_PARAMS);
+
+  it('keeps the theme colour by default', () => {
+    expect(backdropOf(base)).toBeNull();
+  });
+
+  it('turns each type into the matching CSS', () => {
+    expect(backdropCss(backdropOf({ ...base, background: 'solid', backgroundColor: '#123456' })!)).toBe('#123456');
+    // Our 0° runs left to right, which CSS calls 90deg; our 90° (bottom to top) is CSS 0deg.
+    expect(backdropCss(backdropOf({ ...base, background: 'linear', backgroundAngle: 0 })!)).toMatch(/^linear-gradient\(90deg, #3a1670 0\.00%, #07060b 100\.00%\)$/);
+    expect(backdropCss(backdropOf({ ...base, background: 'linear', backgroundAngle: 90 })!)).toMatch(/^linear-gradient\(0deg/);
+    expect(backdropCss(backdropOf({ ...base, background: 'radial' })!)).toMatch(/^radial-gradient\(circle farthest-corner at 50% 50%/);
+  });
+
+  it('has one tone to judge brightness by (for the visible mark)', () => {
+    const stops = JSON.stringify([
+      { pos: 0, color: '#000000' },
+      { pos: 0.45, color: '#ffffff' },
+      { pos: 1, color: '#000000' },
+    ]);
+    expect(backdropTone(backdropOf({ ...base, background: 'radial', backgroundGradient: stops })!)).toBe('#ffffff');
+  });
+});

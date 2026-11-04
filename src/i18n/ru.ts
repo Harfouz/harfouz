@@ -218,6 +218,17 @@ const dictionary: Record<string, string> = {
   "mark.hamzaAbove": "Хамза сверху",
   "mark.tatweel": "Татвиль (кашида)",
   "mark.alefWasla": "Алиф васла",
+  "section.background": "Фон холста",
+  "param.background": "Тип",
+  "option.background.theme": "По умолчанию",
+  "option.background.solid": "Сплошной цвет",
+  "option.background.linear": "Линейный градиент",
+  "option.background.radial": "Радиальный градиент",
+  "param.backgroundColor": "Цвет фона",
+  "param.backgroundGradient": "Градиент фона",
+  "param.backgroundGradient.hint": "Перетащите цвет, чтобы сдвинуть его. Нажмите на полосу, чтобы добавить цвет. Радиальный: от центра наружу.",
+  "param.backgroundAngle": "Направление фона",
+  "param.backgroundAngle.hint": "0°: слева направо. 90°: снизу вверх. Можно анимировать.",
 };
 
 export default dictionary;

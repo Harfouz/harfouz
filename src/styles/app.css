@@ -409,6 +409,8 @@ body {
 .chip[aria-pressed='true'] { color: var(--sheet); background: var(--ink); border-color: var(--ink); }
 
 .panel__head { display: flex; align-items: baseline; justify-content: space-between; }
+.subsection { display: grid; gap: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.panel__subtitle { margin: 0; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
 .link-button {
   font: inherit;
   font-family: var(--font-mono);
@@ -547,7 +549,7 @@ html[lang='ar'] {
 }
 html[lang='ar'] body { font-size: 15px; }
 /* Letter-spacing and capitals break Arabic joins and mean nothing in Arabic. */
-html[lang='ar'] :is(.panel__title, .scope__label, .topbar__tag, .letterbar__word, .segmented span, .link-button, .control__label, .status, .stage-button) {
+html[lang='ar'] :is(.panel__title, .panel__subtitle, .scope__label, .topbar__tag, .letterbar__word, .segmented span, .link-button, .control__label, .status, .stage-button) {
   font-family: var(--font-ui);
   letter-spacing: 0;
   text-transform: none;

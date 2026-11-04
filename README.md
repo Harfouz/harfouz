@@ -27,6 +27,8 @@ Harfouz is made for designers, animators and type lovers. Its one rule: **the Ar
 
 Hairy textures **grow real fur**.
 
+**Artboard background**: the default dark tone, a solid colour, or a linear or radial gradient (as many colours as you like, and an animatable direction). Exports set to "Same as the artboard" use it, gradients included.
+
 **Space (3D)**: extruded letters with depth and bevel, in a lit scene with soft shadows and an orbit camera. Stagger, twist, spin, and per-letter push, shift (left/right), lift, turn and tilt, enough to build calligraphic compositions. **Connected letters stay attached**: the joining stroke bends and stretches instead of breaking, and the further two letters are moved apart, the longer and smoother the sweep between them.
 
 **Every setting works for the whole word, for a single letter, or for a single diacritic.** Click a letter, or a fatha, damma, kasra, shadda, sukun or tanwin, to give it its own values. Diacritics follow their letter until you change them, and in 3D they move with it.

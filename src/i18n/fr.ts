@@ -218,6 +218,17 @@ const dictionary: Record<string, string> = {
   "mark.hamzaAbove": "Hamza suscrite",
   "mark.tatweel": "Tatwil (kashida)",
   "mark.alefWasla": "Alif wasla",
+  "section.background": "Fond de l'artboard",
+  "param.background": "Type",
+  "option.background.theme": "Par défaut",
+  "option.background.solid": "Couleur unie",
+  "option.background.linear": "Dégradé linéaire",
+  "option.background.radial": "Dégradé radial",
+  "param.backgroundColor": "Couleur du fond",
+  "param.backgroundGradient": "Dégradé du fond",
+  "param.backgroundGradient.hint": "Glisse une couleur pour la déplacer. Clique sur la barre pour ajouter une couleur. Radial : du centre vers l'extérieur.",
+  "param.backgroundAngle": "Direction du fond",
+  "param.backgroundAngle.hint": "0° : de gauche à droite. 90° : de bas en haut. Peut être animé.",
 };
 
 export default dictionary;

@@ -11,6 +11,7 @@ import {
   type AnimConfig,
 } from './params/animation';
 import {
+  BACKGROUND_PARAMS,
   inScope,
   isShown,
   LOOK_PARAMS,
@@ -21,6 +22,7 @@ import {
   type RangeParam,
 } from './params/schema';
 import { ParamState } from './params/state';
+import { backdropCss, backdropOf, backdropTone, paintBackdrop } from './render/backdrop';
 import { ThreeRenderer } from './render/three/ThreeRenderer';
 import { animDefs, CLOCK_PARAMS } from './params/motionControls';
 import { getLanguage, LANGUAGES, onLanguageChange, savedLanguage, setLanguage, t, type Lang } from './i18n';
@@ -90,6 +92,9 @@ function update(forExport = false) {
     if (cached?.key !== shapeKey) cached = { key: shapeKey, composition: buildComposition(font, state.text, resolve) };
     const composition = cached.composition;
     const geometryKey = shapeKey + JSON.stringify(letters.map((l) => pick(resolve(l.index), VOLUME_KEYS)));
+
+    const backdrop = backdropOf(word);
+    $('artboard').style.background = backdrop ? backdropCss(backdrop) : '';
 
     renderer.render({
       composition,
@@ -215,6 +220,8 @@ function refreshScope() {
   }
   strip.replaceChildren(...groups);
   $('pick-word').setAttribute('aria-pressed', String(state.selected === null));
+  // The background belongs to the artboard, not to a letter.
+  $('background-block').hidden = state.selected !== null;
 
   const target = $('scope-target');
   const current = letters.find((l) => l.index === state.selected);
@@ -433,7 +440,18 @@ const exportSource: FrameSource = {
   async frame(t, width, height, background) {
     clock.t = t;
     update(true);
-    return renderer.snapshot(width, height, background);
+    // "Same as the artboard" with a gradient: paint it under the letters
+    // (at this frame's time, so an animated direction moves in the video).
+    const backdrop = exportBackground.value === 'sheet' ? backdropOf(resolveNow(-1)) : null;
+    if (!backdrop) return renderer.snapshot(width, height, background);
+    const letters = await renderer.snapshot(width, height, null);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    paintBackdrop(ctx, width, height, backdrop);
+    ctx.drawImage(letters, 0, 0);
+    return canvas;
   },
   glb() {
     update(true);
@@ -518,8 +536,10 @@ function exportBackgroundColor(): string | null {
       return null;
     case 'custom':
       return exportColor.value;
-    default:
-      return getComputedStyle($('artboard')).backgroundColor;
+    default: {
+      const backdrop = backdropOf(resolveNow(-1));
+      return backdrop ? backdropTone(backdrop) : getComputedStyle($('artboard')).backgroundColor;
+    }
   }
 }
 
@@ -639,6 +659,7 @@ fontSelect.addEventListener('change', () => useFont(fontSelect.value as FontId))
 bindParams('shape-controls', 'reset-shape', SHAPE_PARAMS);
 bindParams('look-controls', 'reset-look', LOOK_PARAMS);
 bindParams('space-controls', 'reset-space', SPACE_PARAMS);
+bindParams('background-controls', 'reset-background', BACKGROUND_PARAMS);
 $('recenter').addEventListener('click', updateAndFrame);
 
 // 'ink' colours follow the theme.

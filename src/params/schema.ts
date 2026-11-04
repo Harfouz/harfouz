@@ -290,10 +290,50 @@ export interface LookParams {
   furLength: number;
 }
 
-/** Every parameter, resolved for one letter (or for the whole word). */
-export type Params = ShapeParams & SpaceParams & LookParams;
+/** The artboard's background, also used by exports set to "Same as the artboard". */
+export const BACKGROUND_PARAMS = [
+  {
+    kind: 'choice', key: 'background', label: 'Type', default: 'theme', scope: 'word',
+    options: [
+      { value: 'theme', label: 'Default' },
+      { value: 'solid', label: 'Solid colour' },
+      { value: 'linear', label: 'Linear gradient' },
+      { value: 'radial', label: 'Radial gradient' },
+    ],
+  },
+  {
+    kind: 'color', key: 'backgroundColor', label: 'Background colour', default: '#1b1430', scope: 'word',
+    showIf: { key: 'background', equals: 'solid' },
+  },
+  {
+    kind: 'gradient', key: 'backgroundGradient', label: 'Background gradient', scope: 'word',
+    default: JSON.stringify([
+      { pos: 0, color: '#3a1670' },
+      { pos: 1, color: '#07060b' },
+    ]),
+    hint: 'Drag a colour to move it. Click the bar to add a colour. Radial: from the centre outwards.',
+    showIf: { key: 'background', oneOf: ['linear', 'radial'] },
+  },
+  {
+    kind: 'range', key: 'backgroundAngle', label: 'Background direction', min: -180, max: 180, step: 1, default: 90,
+    unit: '°', scope: 'word',
+    showIf: { key: 'background', equals: 'linear' },
+    hint: '0°: left to right. 90°: bottom to top. Can be animated.',
+  },
+] as const satisfies readonly ParamDef[];
 
-export const ALL_PARAMS: readonly ParamDef[] = [...SHAPE_PARAMS, ...SPACE_PARAMS, ...LOOK_PARAMS];
+export interface BackgroundParams {
+  background: 'theme' | 'solid' | 'linear' | 'radial';
+  backgroundColor: string;
+  /** JSON list of { pos, color } stops. */
+  backgroundGradient: string;
+  backgroundAngle: number;
+}
+
+/** Every parameter, resolved for one letter (or for the whole word). */
+export type Params = ShapeParams & SpaceParams & LookParams & BackgroundParams;
+
+export const ALL_PARAMS: readonly ParamDef[] = [...SHAPE_PARAMS, ...SPACE_PARAMS, ...LOOK_PARAMS, ...BACKGROUND_PARAMS];
 
 export function defaultsOf<T>(defs: readonly ParamDef[]): T {
   return Object.fromEntries(defs.map((d) => [d.key, d.default])) as T;

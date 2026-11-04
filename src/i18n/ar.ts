@@ -218,6 +218,17 @@ const dictionary: Record<string, string> = {
   "mark.hamzaAbove": "همزة فوقية",
   "mark.tatweel": "تطويل (كشيدة)",
   "mark.alefWasla": "ألف وصل",
+  "section.background": "خلفية لوحة العمل",
+  "param.background": "النوع",
+  "option.background.theme": "الافتراضي",
+  "option.background.solid": "لون واحد",
+  "option.background.linear": "تدرّج خطي",
+  "option.background.radial": "تدرّج دائري",
+  "param.backgroundColor": "لون الخلفية",
+  "param.backgroundGradient": "تدرّج الخلفية",
+  "param.backgroundGradient.hint": "اسحب لونًا لتحريكه. انقر على الشريط لإضافة لون. الدائري: من المركز نحو الخارج.",
+  "param.backgroundAngle": "اتجاه الخلفية",
+  "param.backgroundAngle.hint": "0°: من اليسار إلى اليمين. 90°: من الأسفل إلى الأعلى. يمكن تحريكه.",
 };
 
 export default dictionary;
