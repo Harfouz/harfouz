@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildComposition } from '../src/modifiers';
-import { AnimationState, DEFAULT_ANIM, MOTION_PRESETS, wave, WAVES } from '../src/params/animation';
+import { AnimationState, DEFAULT_ANIM, isAnimatable, MOTION_PRESETS, wave, WAVES } from '../src/params/animation';
 import { ALL_PARAMS } from '../src/params/schema';
 import { ParamState } from '../src/params/state';
 import { fonts, TEST_WORDS } from './fixtures';
@@ -20,6 +20,15 @@ describe('waves', () => {
 
   it('sine and triangle share the same timing', () => {
     for (const x of [0, 0.25, 0.5, 0.75]) expect(wave('triangle', x)).toBeCloseTo(wave('sine', x), 6);
+  });
+});
+
+describe('what can be animated', () => {
+  it('offers motion on sliders, but not on the random seed', () => {
+    expect(isAnimatable('noisePhase')).toBe(true);
+    expect(isAnimatable('weight')).toBe(true);
+    expect(isAnimatable('seed')).toBe(false);
+    expect(isAnimatable('material')).toBe(false);
   });
 });
 

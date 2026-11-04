@@ -63,9 +63,10 @@ const RANGES = new Map(
   ALL_PARAMS.filter((d): d is RangeParam => d.kind === 'range').map((d) => [d.key as keyof Params, d]),
 );
 
-/** Parameters that can be animated (the numeric ones). */
+/** Parameters that can be animated (the numeric ones, unless marked still). */
 export function isAnimatable(key: string): boolean {
-  return RANGES.has(key as keyof Params);
+  const def = RANGES.get(key as keyof Params);
+  return !!def && !def.still;
 }
 
 /** A sensible starting amount: a quarter of the slider's range. */

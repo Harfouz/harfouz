@@ -62,6 +62,8 @@ export interface RangeParam extends BaseParam {
   step: number;
   default: number;
   unit?: string;
+  /** Not offered for animation: in-between values mean nothing (e.g. a random seed). */
+  still?: boolean;
 }
 
 export interface ChoiceParam extends BaseParam {
@@ -115,7 +117,7 @@ export const SHAPE_PARAMS = [
     kind: 'range', key: 'noisePhase', label: 'Distortion drift', min: 0, max: 360, step: 1, default: 0, unit: '°',
     hint: 'Slides the distortion pattern around a circle. Animate it with a ramp for a flowing, looping motion.',
   },
-  { kind: 'range', key: 'seed', label: 'Seed', min: 1, max: 99, step: 1, default: 7 },
+  { kind: 'range', key: 'seed', label: 'Seed', min: 1, max: 99, step: 1, default: 7, still: true },
 ] as const satisfies readonly ParamDef[];
 
 export interface ShapeParams {
