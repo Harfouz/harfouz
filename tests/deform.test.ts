@@ -5,6 +5,7 @@ import { ParamState } from '../src/params/state';
 import {
   deformGeometry,
   deformPoint,
+  bridgeConnectors,
   findJunctions,
   fitJoins,
   frameMatrix,
@@ -180,5 +181,37 @@ describe('calligraphic moves (one letter lifted or shifted far from its neighbou
       [1, frame(1, 200, 0, 0, new Vector3(0, 0, 0))],
     ]);
     expect(fitJoins(seam, still, 260, 1200)[0].softness).toBe(260);
+  });
+});
+
+describe('tatweels between moved letters', () => {
+  const none = () => ({ offset: new Vector3(), turn: 0, tilt: 0 });
+  const at = (letter: number, x: number, lift: number) => frame(letter, x, 0, 0, new Vector3(0, lift, 0));
+
+  it('sit evenly between their neighbours instead of staying behind', () => {
+    // ج ـ ـ م: ج lifted 450, م lifted 150, two tatweels left at rest.
+    const frames = new Map([
+      [0, at(0, 900, 450)],
+      [1, at(1, 700, 0)],
+      [2, at(2, 600, 0)],
+      [3, at(3, 400, 150)],
+    ]);
+    bridgeConnectors([0, 1, 2, 3], frames, (i) => i === 1 || i === 2, none);
+    expect(frames.get(1)!.offset.y).toBeCloseTo(350);
+    expect(frames.get(2)!.offset.y).toBeCloseTo(250);
+    expect(frames.get(0)!.offset.y).toBe(450); // letters keep their own placement
+  });
+
+  it('keep their own extra move, and stay put at the ends of a word', () => {
+    const frames = new Map([
+      [0, at(0, 900, 400)],
+      [1, at(1, 700, 0)],
+      [2, at(2, 500, 0)],
+      [3, at(3, 300, 0)],
+    ]);
+    const extra = (i: number) => ({ offset: new Vector3(0, i === 1 ? 50 : 0, 0), turn: 0, tilt: 0 });
+    bridgeConnectors([0, 1, 2, 3], frames, (i) => i === 1 || i === 3, extra);
+    expect(frames.get(1)!.offset.y).toBeCloseTo(250); // halfway (200) + its own 50
+    expect(frames.get(3)!.offset.y).toBe(0); // last in the word: nothing to bridge to
   });
 });

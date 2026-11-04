@@ -78,6 +78,42 @@ export function fitJoins(
   });
 }
 
+/**
+ * A tatweel (ـ) is only a connecting stroke, so it should not stay behind
+ * when the letters around it move: each run of connectors gets placements
+ * spread evenly between the letter before and the letter after it, plus
+ * whatever the connector was given on its own (`extra`). The stroke then
+ * flows from one letter to the next instead of dipping between them.
+ * `order` lists letters in reading order. Frames are updated in place.
+ */
+export function bridgeConnectors(
+  order: number[],
+  frames: Map<number, LetterFrame>,
+  isConnector: (letter: number) => boolean,
+  extra: (letter: number) => Pick<LetterFrame, 'offset' | 'turn' | 'tilt'>,
+) {
+  for (let k = 0; k < order.length; k++) {
+    if (!isConnector(order[k])) continue;
+    let before = k - 1;
+    while (before >= 0 && isConnector(order[before])) before--;
+    let after = k + 1;
+    while (after < order.length && isConnector(order[after])) after++;
+    const from = frames.get(order[before]);
+    const to = frames.get(order[after]);
+    const own = frames.get(order[k]);
+    if (!from || !to || !own) continue; // at the very start or end: keeps its own placement
+    const t = (k - before) / (after - before);
+    const e = extra(order[k]);
+    frames.set(order[k], {
+      letter: order[k],
+      pivot: from.pivot.clone().lerp(to.pivot, t),
+      offset: from.offset.clone().lerp(to.offset, t).add(e.offset),
+      turn: from.turn + (to.turn - from.turn) * t + e.turn,
+      tilt: from.tilt + (to.tilt - from.tilt) * t + e.tilt,
+    });
+  }
+}
+
 /** Blended placement for points of one letter. */
 class Blender {
   private pivot = new Vector3();

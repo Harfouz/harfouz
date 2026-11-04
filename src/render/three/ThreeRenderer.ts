@@ -28,13 +28,14 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { TATWEEL_CHAR } from '../../core/joining';
 import type { Composition } from '../../core/types';
 import { inkOf, letterFill, parseGradient, resolveColor, textureOf } from '../look';
 import { HAIRY } from '../textures';
 import type { Params } from '../../params/schema';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
-import { deformGeometry, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
+import { bridgeConnectors, deformGeometry, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
 import { furLayers, MaterialLibrary } from './materials';
 
 /** Where the camera looks from by default: a little to the left and above. */
@@ -304,6 +305,23 @@ export class ThreeRenderer implements Renderer {
         tilt: p.tilt * rad,
       });
     });
+
+    // Typed tatweels are connecting strokes: they sit between their neighbours.
+    const glyphsOf = new Map<number, string[]>();
+    for (const g of comp.glyphs) glyphsOf.set(g.letter, [...(glyphsOf.get(g.letter) ?? []), comp.text[g.cluster]]);
+    bridgeConnectors(
+      spans.map((s) => s.letter),
+      frames,
+      (index) => glyphsOf.get(index)?.every((c) => c === TATWEEL_CHAR) ?? false,
+      (index) => {
+        const p = letter(index);
+        return {
+          offset: new Vector3(p.shift - word.shift, p.lift - word.lift, p.push - word.push).multiplyScalar(perMille),
+          turn: (p.turn - word.turn) * rad,
+          tilt: (p.tilt - word.tilt) * rad,
+        };
+      },
+    );
 
     // Diacritics have their own volume. They move with their letter, plus
     // their own extra placement (shift, lift, push, turn, tilt) around their centre.
