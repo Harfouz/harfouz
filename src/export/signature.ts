@@ -148,67 +148,35 @@ function drawSpaced(ctx: CanvasRenderingContext2D, text: string, x: number, y: n
 }
 
 /**
- * Draw "MADE WITH حرفوز HARFOUZ" in the bottom corner of a frame, like the
- * site's logo: the Arabic name in metallic violet with a little extrusion,
- * the Latin words in spaced monospace capitals, light or dark to suit the
- * background. Call prepareMark() once before, so the logo's face is loaded.
+ * Draw a small "MADE WITH حرفوز HARFOUZ" in the bottom corner of a frame,
+ * as plain text in the logo's faces (Amiri for the Arabic, spaced
+ * monospace capitals for the Latin), light or dark to suit the background.
+ * Call prepareMark() once before, so the Arabic face is loaded.
  */
 export function drawMark(canvas: HTMLCanvasElement, background: string | null) {
   const ctx = canvas.getContext('2d')!;
-  const arabic = Math.max(18, Math.round(Math.min(canvas.width, canvas.height) * 0.05));
-  const mono = Math.max(8, Math.round(arabic * 0.36));
+  const arabic = Math.max(13, Math.round(Math.min(canvas.width, canvas.height) * 0.026));
+  const mono = Math.max(7, Math.round(arabic * 0.42));
   const spacing = mono * 0.18;
-  const gap = arabic * 0.32;
-  const margin = Math.round(arabic * 0.7);
+  const gap = arabic * 0.35;
+  const margin = Math.round(arabic * 1.1);
   const light = background ? isLight(background) : false;
-  const latin = light ? 'rgba(26, 22, 18, 0.78)' : 'rgba(236, 231, 247, 0.88)';
 
   ctx.save();
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
   ctx.direction = 'ltr';
+  ctx.fillStyle = light ? 'rgba(26, 22, 18, 0.7)' : 'rgba(236, 231, 247, 0.75)';
   const baseline = canvas.height - margin;
 
-  // Measure the three parts, laid out from the right edge.
+  // Laid out from the right edge: HARFOUZ, then حرفوز, then MADE WITH.
   ctx.font = `500 ${mono}px ${MARK_MONO}`;
-  const made = 'MADE WITH';
-  const name = 'HARFOUZ';
-  const madeW = spacedWidth(ctx, made, spacing);
-  const nameW = spacedWidth(ctx, name, spacing);
+  const nameX = canvas.width - margin - spacedWidth(ctx, 'HARFOUZ', spacing);
+  drawSpaced(ctx, 'HARFOUZ', nameX, baseline, spacing);
   ctx.font = `${arabic}px ${MARK_ARABIC}`;
-  const ar = ctx.measureText('حرفوز');
-  const nameX = canvas.width - margin - nameW;
-  const arX = nameX - gap - ar.width;
-  const madeX = arX - gap - madeW;
-
-  // حرفوز: extrusion (three violet layers, deepest first), shadow and glow, then the chrome face.
-  const depth = Math.max(1, arabic * 0.035);
-  const layers = ['#2f0f68', '#44198f', '#5a24b8'];
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-  ctx.shadowBlur = arabic * 0.12;
-  ctx.shadowOffsetY = depth * 2;
-  layers.forEach((color, k) => {
-    ctx.fillStyle = color;
-    ctx.fillText('حرفوز', arX, baseline + depth * (layers.length - k));
-    ctx.shadowColor = 'transparent';
-  });
-  ctx.shadowColor = 'rgba(166, 107, 255, 0.35)';
-  ctx.shadowBlur = arabic * 0.3;
-  ctx.shadowOffsetY = 0;
-  const top = baseline - ar.actualBoundingBoxAscent;
-  const bottom = baseline + ar.actualBoundingBoxDescent;
-  const chrome = ctx.createLinearGradient(0, top, 0, bottom);
-  for (const [pos, color] of [
-    [0, '#faf5ff'], [0.24, '#d9bcff'], [0.47, '#9a5cff'], [0.52, '#3d1585'], [0.66, '#b98aff'], [0.84, '#efe2ff'], [1, '#8a4df0'],
-  ] as const) chrome.addColorStop(pos, color);
-  ctx.fillStyle = chrome;
+  const arX = nameX - gap - ctx.measureText('حرفوز').width;
   ctx.fillText('حرفوز', arX, baseline);
-
-  // The Latin words, on the same baseline.
-  ctx.shadowColor = 'transparent';
   ctx.font = `500 ${mono}px ${MARK_MONO}`;
-  ctx.fillStyle = latin;
-  drawSpaced(ctx, made, madeX, baseline, spacing);
-  drawSpaced(ctx, name, nameX, baseline, spacing);
+  drawSpaced(ctx, 'MADE WITH', arX - gap - spacedWidth(ctx, 'MADE WITH', spacing), baseline, spacing);
   ctx.restore();
 }
