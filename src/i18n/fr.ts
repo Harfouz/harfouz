@@ -106,6 +106,8 @@ const dictionary: Record<string, string> = {
   "param.joinSoftness.hint": "Longueur de la zone qui s'étire entre deux lettres liées. Petite : les lettres restent rigides et la liaison plie d'un coup.",
   "param.push": "Avancer",
   "param.push.hint": "Avance (positif) ou recule (négatif). Sur le mot, toutes les lettres ; idéal par lettre ou animé avec un décalage.",
+  "param.shift": "Glissement",
+  "param.shift.hint": "Déplace vers la droite (positif) ou la gauche (négatif). Les lettres liées restent attachées : la liaison s'étire ou se resserre.",
   "param.lift": "Hauteur",
   "param.lift.hint": "Monte ou descend. Animé sur le mot avec un décalage entre les lettres, cela fait une vague.",
   "param.turn": "Pivot",

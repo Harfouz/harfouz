@@ -170,6 +170,10 @@ export const SPACE_PARAMS = [
     hint: 'Moves forward (positive) or back (negative). On the word, every letter; best used per letter or animated with a delay.',
   },
   {
+    kind: 'range', key: 'shift', label: 'Shift', min: -1000, max: 1000, step: 5, default: 0, unit: '‰',
+    hint: 'Moves right (positive) or left (negative). Connected letters stay attached: the join stretches or tightens.',
+  },
+  {
     kind: 'range', key: 'lift', label: 'Lift', min: -1000, max: 1000, step: 5, default: 0, unit: '‰',
     hint: 'Moves up or down. Animated on the word with a delay between letters, it makes a wave.',
   },
@@ -192,6 +196,7 @@ export interface SpaceParams {
   joins: 'keep' | 'free';
   joinSoftness: number;
   push: number;
+  shift: number;
   lift: number;
   turn: number;
   tilt: number;

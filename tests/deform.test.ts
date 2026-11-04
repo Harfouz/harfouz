@@ -6,6 +6,7 @@ import {
   deformGeometry,
   deformPoint,
   findJunctions,
+  fitJoins,
   frameMatrix,
   type Junction,
   type LetterFrame,
@@ -124,4 +125,60 @@ describe.each(fonts)('junctions with $name', (font) => {
     }
     // Compares every vertex of two letters with every other: heavy, so allow time on slow machines.
   }, 30_000);
+});
+
+describe('calligraphic moves (one letter lifted or shifted far from its neighbour)', () => {
+  // Letter 0 on the right (first in reading order), letter 1 on its left, joined on the baseline at x = 500.
+  const seam: Junction[] = [{ a: 0, b: 1, center: new Vector2(500, 0), radius: 40 }];
+  const moved = new Map([
+    [0, frame(0, 800, 0, 0, new Vector3(-150, 600, 0))],
+    [1, frame(1, 200, 0, 0, new Vector3(0, 0, 0))],
+  ]);
+
+  /** Steepest rise of the baseline stroke as it runs through the join. */
+  function steepest(junctions: Junction[]) {
+    let worst = 0;
+    let previous: Vector3 | null = null;
+    for (let x = -700; x <= 1700; x += 5) {
+      const p = deformPoint(x >= 500 ? 0 : 1, moved, junctions, new Vector3(x, 0, 0), 260);
+      if (previous) worst = Math.max(worst, Math.abs(p.y - previous.y) / Math.max(Math.abs(p.x - previous.x), 1e-6));
+      previous = p;
+    }
+    return worst;
+  }
+
+  it('the join sweeps gently instead of kinking', () => {
+    const fitted = fitJoins(seam, moved, 260, 1200);
+    expect(fitted[0].softness).toBeGreaterThan(600);
+    expect(steepest(seam)).toBeGreaterThan(1.5); // a fixed short blend: steep
+    expect(steepest(fitted)).toBeLessThan(1.1); // fitted to the move: gentle
+  });
+
+  it('both letters still meet on the seam', () => {
+    const fitted = fitJoins(seam, moved, 260, 1200);
+    for (const p of [new Vector3(500, 0, 0), new Vector3(510, 30, 40)]) {
+      expect(deformPoint(0, moved, fitted, p, 260).distanceTo(deformPoint(1, moved, fitted, p, 260))).toBeLessThan(1e-6);
+    }
+  });
+
+  it('a moved join spans the whole of a short letter, so it sweeps instead of stepping', () => {
+    const widths = new Map([
+      [0, 520],
+      [1, 210],
+    ]);
+    const lifted = new Map([
+      [0, frame(0, 800, 0, 0, new Vector3(0, 0, 0))],
+      [1, frame(1, 200, 0, 0, new Vector3(0, 300, 0))],
+    ]);
+    expect(fitJoins(seam, lifted, 150, 1200, widths)[0].softness).toBeGreaterThanOrEqual(210);
+    expect(fitJoins(seam, lifted, 150, 120, widths)[0].softness).toBe(150); // never past the limit
+  });
+
+  it('small moves keep the chosen softness', () => {
+    const still = new Map([
+      [0, frame(0, 800, 0, 0, new Vector3(0, 40, 0))],
+      [1, frame(1, 200, 0, 0, new Vector3(0, 0, 0))],
+    ]);
+    expect(fitJoins(seam, still, 260, 1200)[0].softness).toBe(260);
+  });
 });

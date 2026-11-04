@@ -44,6 +44,40 @@ export function frameMatrix(f: Pick<LetterFrame, 'pivot' | 'offset' | 'turn' | '
     .multiply(new Matrix4().makeTranslation(-f.pivot.x, -f.pivot.y, -f.pivot.z));
 }
 
+/**
+ * Give each join a blend long enough for how far apart its two letters
+ * were moved. A letter lifted, shifted or turned a lot would otherwise
+ * have to cover the whole distance within `softness`, making a sharp kink;
+ * here the connecting stroke never gets much steeper than 45°, like a
+ * calligrapher's pen sweeping from one letter to the next.
+ *
+ * Once a join really moves, its blend also spans the narrower of its two
+ * letters (`widths`, in font units): a short letter between two moved
+ * neighbours then follows one continuous sweep instead of making a step.
+ * Everything stays under `max` (font units) so letters keep most of their
+ * shape.
+ */
+export function fitJoins(
+  junctions: Junction[],
+  frames: Map<number, LetterFrame>,
+  softness: number,
+  max: number,
+  widths: Map<number, number> = new Map(),
+): Junction[] {
+  const cap = Math.max(softness, max);
+  return junctions.map((j) => {
+    const a = frames.get(j.a);
+    const b = frames.get(j.b);
+    if (!a || !b) return j;
+    const seam = new Vector3(j.center.x, j.center.y, 0);
+    const gap = seam.clone().applyMatrix4(frameMatrix(a)).distanceTo(seam.clone().applyMatrix4(frameMatrix(b)));
+    // Fades in with the move, so a tiny nudge keeps the chosen softness.
+    const moved = Math.min(1, gap / Math.max(softness, 1e-3));
+    const across = Math.min(widths.get(j.a) ?? 0, widths.get(j.b) ?? 0) * moved;
+    return { ...j, softness: Math.min(Math.max(softness, gap * 1.25, across), cap) };
+  });
+}
+
 /** Blended placement for points of one letter. */
 class Blender {
   private pivot = new Vector3();

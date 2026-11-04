@@ -34,7 +34,7 @@ import { HAIRY } from '../textures';
 import type { Params } from '../../params/schema';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
-import { deformGeometry, findJunctions, frameMatrix, letterSpans, type LetterFrame } from './deform';
+import { deformGeometry, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
 import { furLayers, MaterialLibrary } from './materials';
 
 /** Where the camera looks from by default: a little to the left and above. */
@@ -294,19 +294,19 @@ export class ThreeRenderer implements Renderer {
       const pivot = new Vector3((span.start + span.end) / 2, volume?.pivotY ?? (comp.ascender + comp.descender) / 2, 0);
       if (volume) built.set(index, volume.geometry.clone());
       // Stagger and twist are measured from the middle letter so the word stays centred;
-      // push, lift, turn and tilt are this letter's own placement.
+      // push, shift, lift, turn and tilt are this letter's own placement.
       const rank = order - middle;
       frames.set(index, {
         letter: index,
         pivot,
-        offset: new Vector3(0, p.lift * perMille, -rank * word.stagger * perMille + p.push * perMille),
+        offset: new Vector3(p.shift * perMille, p.lift * perMille, -rank * word.stagger * perMille + p.push * perMille),
         turn: (rank * word.twist + p.turn) * rad,
         tilt: p.tilt * rad,
       });
     });
 
     // Diacritics have their own volume. They move with their letter, plus
-    // their own extra placement (lift, push, turn, tilt) around their centre.
+    // their own extra placement (shift, lift, push, turn, tilt) around their centre.
     const baseOf = new Map(comp.glyphs.map((g) => [g.letter, g.base]));
     for (const [index, volume] of this.volumes) {
       if (frames.has(index)) continue;
@@ -320,7 +320,7 @@ export class ThreeRenderer implements Renderer {
       geometry.applyMatrix4(
         frameMatrix({
           pivot: geometry.boundingBox!.getCenter(new Vector3()),
-          offset: new Vector3(0, (p.lift - pb.lift) * perMille, (p.push - pb.push) * perMille),
+          offset: new Vector3((p.shift - pb.shift) * perMille, (p.lift - pb.lift) * perMille, (p.push - pb.push) * perMille),
           turn: (p.turn - pb.turn) * rad,
           tilt: (p.tilt - pb.tilt) * rad,
         }),
@@ -332,7 +332,10 @@ export class ThreeRenderer implements Renderer {
     // 2. Move each letter; around each junction with a connected neighbour the
     //    placements blend, so joins bend instead of breaking.
     const softness = word.joinSoftness * perMille;
-    const junctions = word.joins === 'keep' ? this.junctionCache : [];
+    // The further apart two letters are moved, the longer their join sweeps.
+    const widths = new Map(spans.map((s) => [s.letter, s.end - s.start]));
+    const junctions =
+      word.joins === 'keep' ? fitJoins(this.junctionCache, frames, softness, comp.unitsPerEm * 1.2, widths) : [];
     for (const [index, geometry] of built) {
       const p = letter(index);
 

@@ -29,6 +29,8 @@ export interface Junction {
   center: Vector2;
   /** Radius of the seam: inside it, both letters share exactly the same blend. */
   radius: number;
+  /** Length of the blend on each side of the seam, when it differs from the default. */
+  softness?: number;
 }
 
 /** Spans of every letter, in reading order, with whether it joins the next one. */
@@ -153,9 +155,10 @@ export function findJunctions(comp: Composition): Junction[] {
   return junctions;
 }
 
-const smoothstep = (t: number) => {
+/** Eases 0 → 1 with no jump in slope or curvature at either end: joins flow without a visible kink. */
+const smootherstep = (t: number) => {
   const c = Math.min(1, Math.max(0, t));
-  return c * c * (3 - 2 * c);
+  return c * c * c * (c * (c * 6 - 15) + 10);
 };
 
 /**
@@ -181,7 +184,7 @@ export function weightsFor(
         [other, 0.5],
       ]);
     }
-    const w = 0.5 * (1 - smoothstep((d - j.radius) / Math.max(softness, 1e-3)));
+    const w = 0.5 * (1 - smootherstep((d - j.radius) / Math.max(j.softness ?? softness, 1e-3)));
     if (w > 0) {
       weights.set(other, (weights.get(other) ?? 0) + w);
       others += w;
