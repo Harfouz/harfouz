@@ -11,7 +11,7 @@ import {
   type VideoCodec,
 } from 'mediabunny';
 import type { ExportFormat } from './formats';
-import { drawMark, SIGNATURE, signGif, signGlb, signJpeg, signPng } from './signature';
+import { drawMark, prepareMark, SIGNATURE, signGif, signGlb, signJpeg, signPng } from './signature';
 
 /** What the exporter needs from the app: pictures of the artwork. */
 export interface FrameSource {
@@ -70,6 +70,7 @@ export async function runExport(source: FrameSource, job: ExportJob): Promise<Bl
   const { format, width, height, signal } = job;
   // Formats without transparency get a background no matter what.
   const background = format.alpha ? job.background : (job.background ?? '#ffffff');
+  if (job.mark) await prepareMark();
   const frameAt = async (t: number) => {
     const canvas = await source.frame(t, width, height, background);
     if (job.mark) drawMark(canvas, background);
