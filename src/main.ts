@@ -513,7 +513,7 @@ addEventListener('keydown', (e) => {
   }
 });
 
-buildControls($('clock-controls'), CLOCK_PARAMS, {
+const refreshClock = buildControls($('clock-controls'), CLOCK_PARAMS, {
   get: (k) => clock[k as 'speed' | 'loop'],
   set: (k, v) => (clock[k as 'speed' | 'loop'] = Number(v)),
   reset: (k) => (clock[k as 'speed' | 'loop'] = Number(CLOCK_PARAMS.find((d) => d.key === k)!.default)),
@@ -800,6 +800,7 @@ onLanguageChange(() => {
   fillSizes();
   refreshExportFormats();
   refreshScope();
+  refreshClock();
   setPlaying(clock.playing);
   update();
 });
