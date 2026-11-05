@@ -229,6 +229,10 @@ const dictionary: Record<string, string> = {
   "param.backgroundGradient.hint": "Glisse une couleur pour la déplacer. Clique sur la barre pour ajouter une couleur. Radial : du centre vers l'extérieur.",
   "param.backgroundAngle": "Direction du fond",
   "param.backgroundAngle.hint": "0° : de gauche à droite. 90° : de bas en haut. Peut être animé.",
+  "motion.inUse": "Mouvements en cours",
+  "motion.onOff": "Jouer ce mouvement (désactivé : il est gardé, mais immobile)",
+  "motion.select": "Sélectionner pour modifier ses autres réglages",
+  "motion.remove": "Retirer",
 };
 
 export default dictionary;

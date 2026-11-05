@@ -33,6 +33,27 @@ describe('what can be animated', () => {
 });
 
 describe('AnimationState', () => {
+  it('lists every motion: the word first, then letters in text order', () => {
+    const a = new AnimationState();
+    a.set(3, 'lift', { ...DEFAULT_ANIM, amount: 100 });
+    a.set(null, 'twist', { ...DEFAULT_ANIM, amount: 20 });
+    a.set(1, 'turn', { ...DEFAULT_ANIM, amount: 45, enabled: false });
+    expect(a.entries().map((e) => [e.letter, e.key])).toEqual([
+      [null, 'twist'],
+      [1, 'turn'],
+      [3, 'lift'],
+    ]);
+    a.clear(1, 'turn');
+    expect(a.entries()).toHaveLength(2);
+  });
+
+  it('a motion switched off stays listed but does not move', () => {
+    const a = new AnimationState();
+    a.set(null, 'lift', { ...DEFAULT_ANIM, amount: 100, enabled: false });
+    expect(a.entries()).toHaveLength(1);
+    expect(a.active).toBe(false);
+  });
+
   const p = new ParamState();
 
   it('moves a value around its still value', () => {

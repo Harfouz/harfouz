@@ -229,6 +229,10 @@ const dictionary: Record<string, string> = {
   "param.backgroundGradient.hint": "Перетащите цвет, чтобы сдвинуть его. Нажмите на полосу, чтобы добавить цвет. Радиальный: от центра наружу.",
   "param.backgroundAngle": "Направление фона",
   "param.backgroundAngle.hint": "0°: слева направо. 90°: снизу вверх. Можно анимировать.",
+  "motion.inUse": "Активные движения",
+  "motion.onOff": "Воспроизводить это движение (выкл.: сохраняется, но не двигается)",
+  "motion.select": "Выбрать, чтобы изменить другие настройки",
+  "motion.remove": "Удалить",
 };
 
 export default dictionary;

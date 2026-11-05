@@ -60,25 +60,7 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .brand { display: flex; align-items: baseline; gap: 12px; }
-/* The Arabic name in metallic violet: a chrome-like gradient clipped to the
-   letters, with stacked drop shadows for a few pixels of extrusion. */
-.brand__ar {
-  font-family: var(--font-ar);
-  font-size: 30px;
-  line-height: 1.15;
-  padding: 0 2px;
-  color: var(--accent);
-  background: linear-gradient(180deg, #faf5ff 0%, #d9bcff 24%, #9a5cff 47%, #3d1585 52%, #b98aff 66%, #efe2ff 84%, #8a4df0 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter:
-    drop-shadow(0 1px 0 #5a24b8)
-    drop-shadow(0 1px 0 #44198f)
-    drop-shadow(0 1px 0 #2f0f68)
-    drop-shadow(0 3px 4px rgb(0 0 0 / 0.7))
-    drop-shadow(0 0 10px rgb(166 107 255 / 0.35));
-}
+.brand__ar { font-family: var(--font-ar); font-size: 30px; line-height: 1.15; color: var(--accent); }
 .brand__lat { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; }
 .topbar__tag { margin: 0; font-family: var(--font-mono); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
 .lang-select {
@@ -189,6 +171,20 @@ body {
 }
 .anim-panel .control__label { font-size: 11px; }
 .anim-glyph { color: var(--accent); }
+
+/* Motions in use (Motion section): one card per motion. */
+.motion-list { display: grid; gap: 10px; }
+.motion-list__title { margin: 0; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
+.motion-card { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-inline-start: 2px solid var(--accent); border-radius: var(--radius); background: var(--sheet); }
+.motion-card.is-off { border-inline-start-color: var(--line); }
+.motion-card.is-off .controls { opacity: 0.45; }
+.motion-card__head { display: flex; align-items: center; gap: 8px; }
+.motion-card__name { font-weight: 500; }
+.motion-card__target { color: var(--muted); font-size: 12px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }
+.motion-card__target:hover { color: var(--accent); }
+.motion-card__target .ar { font-family: var(--font-ar); font-size: 17px; color: var(--accent); }
+.motion-card__remove { margin-inline-start: auto; }
+.motion-card .control__label { font-size: 11px; }
 
 /* ── Export ────────────────────────────────────────────── */
 .segmented--wide { display: flex; }

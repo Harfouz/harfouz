@@ -11,6 +11,7 @@ import {
   type AnimConfig,
 } from './params/animation';
 import {
+  ALL_PARAMS,
   BACKGROUND_PARAMS,
   inScope,
   isShown,
@@ -25,7 +26,7 @@ import { ParamState } from './params/state';
 import { backdropCss, backdropOf, backdropTone, paintBackdrop } from './render/backdrop';
 import { ThreeRenderer } from './render/three/ThreeRenderer';
 import { animDefs, CLOCK_PARAMS } from './params/motionControls';
-import { getLanguage, LANGUAGES, onLanguageChange, savedLanguage, setLanguage, t, type Lang } from './i18n';
+import { getLanguage, LANGUAGES, onLanguageChange, paramLabel, savedLanguage, setLanguage, t, type Lang } from './i18n';
 import { buildControls } from './ui/controls';
 import { buildKeyboard, mapPhysicalKeys } from './ui/keyboard';
 import { canExportVideo, download, runExport, type FrameSource } from './export/exporter';
@@ -249,6 +250,7 @@ function refreshScope() {
   }
   $('reset-letter').hidden = !current || !params.hasOverrides(current.index);
   refreshers.forEach((r) => r());
+  refreshMotionList();
 }
 
 $('pick-word').addEventListener('click', () => select(null));
@@ -317,11 +319,13 @@ function addAnimToggle(def: RangeParam, row: HTMLElement): () => void {
       const current = anim.own(state.selected, key) ?? { ...DEFAULT_ANIM };
       anim.set(state.selected, key, { ...current, [field(k)]: value });
       ensureMotionVisible();
+      refreshMotionList();
       update();
     },
     reset: (k) => {
       const current = anim.own(state.selected, key);
       if (current) anim.set(state.selected, key, { ...current, [field(k)]: (DEFAULT_ANIM as unknown as Record<string, number | string>)[field(k)] });
+      refreshMotionList();
       update();
     },
     isModified: () => false,
@@ -357,6 +361,120 @@ function addAnimToggle(def: RangeParam, row: HTMLElement): () => void {
     panel.hidden = !own;
     if (own) refreshPanel();
   };
+}
+
+// ── Motions in use (listed in the Motion section) ────────
+
+const motionList = $('motion-list');
+let motionListKey = '';
+let motionCards: (() => void)[] = [];
+
+/**
+ * Every motion applied to the text, one card each: what moves, on what
+ * (the word, a letter or a diacritic), with all its settings, an on/off
+ * switch and a remove button. Rebuilt only when motions are added or
+ * removed, so dragging a slider here is never interrupted.
+ */
+function refreshMotionList() {
+  const entries = anim.entries();
+  const key = JSON.stringify([getLanguage(), state.text, entries.map((e) => [e.letter, e.key])]);
+  if (key !== motionListKey) {
+    motionListKey = key;
+    motionCards = [];
+    const letters = lettersOf(state.text);
+    const cards: HTMLElement[] = [];
+    if (entries.length) {
+      const title = document.createElement('h3');
+      title.className = 'motion-list__title';
+      title.textContent = t('motion.inUse', 'Motions in use');
+      cards.push(title);
+    }
+    entries.forEach(({ letter, key: param }, n) => {
+      const def = ALL_PARAMS.find((d) => d.key === param) as RangeParam | undefined;
+      if (!def) return;
+      const card = document.createElement('div');
+      card.className = 'motion-card';
+
+      const head = document.createElement('div');
+      head.className = 'motion-card__head';
+      const onOff = document.createElement('input');
+      onOff.type = 'checkbox';
+      onOff.title = t('motion.onOff', 'Play this motion (off: keep it, but still)');
+      onOff.addEventListener('change', () => {
+        const current = anim.own(letter, param);
+        if (current) anim.set(letter, param, { ...current, enabled: onOff.checked });
+        refreshScope();
+        update();
+      });
+      const name = document.createElement('span');
+      name.className = 'motion-card__name';
+      name.textContent = paramLabel(def);
+
+      // On what: the word, or the letter / diacritic (click to select it).
+      const target = document.createElement('button');
+      target.type = 'button';
+      target.className = 'motion-card__target';
+      const item = letters.find((l) => l.index === letter);
+      if (letter === null || !item) {
+        target.textContent = t('scope.word', 'Whole word');
+      } else {
+        const ar = document.createElement('span');
+        ar.className = 'ar';
+        ar.lang = 'ar';
+        ar.textContent = item.base === undefined ? item.label : markLabel(item.label);
+        target.append(ar);
+      }
+      target.title = t('motion.select', 'Select it to edit its other settings');
+      target.addEventListener('click', () => select(letter));
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'link-button motion-card__remove';
+      remove.textContent = t('motion.remove', 'Remove');
+      remove.addEventListener('click', () => {
+        anim.clear(letter, param);
+        refreshScope();
+        update();
+      });
+      head.append(onOff, name, target, remove);
+
+      // Its settings, with keys of their own so several cards can coexist.
+      const controls = document.createElement('div');
+      controls.className = 'controls';
+      const prefix = `motion-${n}-`;
+      const defs = animDefs(def).map((d) => ({ ...d, key: prefix + d.key.split('-').pop() }));
+      const field = (k: string) => k.slice(prefix.length) as keyof AnimConfig;
+      const refresh = buildControls(controls, defs, {
+        get: (k) => (anim.own(letter, param) ?? DEFAULT_ANIM)[field(k)] as number | string,
+        set: (k, value) => {
+          const current = anim.own(letter, param) ?? { ...DEFAULT_ANIM };
+          anim.set(letter, param, { ...current, [field(k)]: value });
+          ensureMotionVisible();
+          refreshers.forEach((r) => r());
+          update();
+        },
+        reset: (k) => {
+          const current = anim.own(letter, param);
+          if (current) anim.set(letter, param, { ...current, [field(k)]: (DEFAULT_ANIM as unknown as Record<string, number | string>)[field(k)] });
+          refreshers.forEach((r) => r());
+          update();
+        },
+        isModified: () => false,
+        // A delay between letters only means something for the whole word.
+        isAvailable: (d) => !(field(d.key) === 'spread' && letter !== null),
+      });
+      card.append(head, controls);
+      cards.push(card);
+      motionCards.push(() => {
+        const on = anim.own(letter, param)?.enabled ?? false;
+        onOff.checked = on;
+        card.classList.toggle('is-off', !on);
+        refresh();
+      });
+    });
+    motionList.replaceChildren(...cards);
+  }
+  motionCards.forEach((r) => r());
 }
 
 /** Start playing the first time something is made to move. */

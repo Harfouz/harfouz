@@ -229,6 +229,10 @@ const dictionary: Record<string, string> = {
   "param.backgroundGradient.hint": "اسحب لونًا لتحريكه. انقر على الشريط لإضافة لون. الدائري: من المركز نحو الخارج.",
   "param.backgroundAngle": "اتجاه الخلفية",
   "param.backgroundAngle.hint": "0°: من اليسار إلى اليمين. 90°: من الأسفل إلى الأعلى. يمكن تحريكه.",
+  "motion.inUse": "الحركات المستخدمة",
+  "motion.onOff": "تشغيل هذه الحركة (عند الإيقاف: تبقى محفوظة لكن ثابتة)",
+  "motion.select": "حدّده لتعديل إعداداته الأخرى",
+  "motion.remove": "إزالة",
 };
 
 export default dictionary;

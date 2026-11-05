@@ -129,6 +129,16 @@ export class AnimationState {
     }
   }
 
+  /** Every motion that is set: the word's first, then each letter's, in text order. */
+  entries(): { letter: number | null; key: keyof Params; config: AnimConfig }[] {
+    const out: { letter: number | null; key: keyof Params; config: AnimConfig }[] = [];
+    for (const [key, config] of this.word) out.push({ letter: null, key, config });
+    for (const letter of [...this.letters.keys()].sort((a, b) => a - b)) {
+      for (const [key, config] of this.letters.get(letter)!) out.push({ letter, key, config });
+    }
+    return out;
+  }
+
   clearAll() {
     this.word.clear();
     this.letters.clear();
