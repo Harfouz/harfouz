@@ -7,6 +7,7 @@ import { bendLetters } from './bend';
 import { slantMap, toComposition, type PointMap } from './geometry';
 import { noiseMap } from './noise';
 import { applySpacing } from './spacing';
+import { applyWeight } from './weight';
 import { applyWidth } from './width';
 
 /** Shape parameters for one letter, by its index in the typed text. */
@@ -18,15 +19,16 @@ export type ShapeResolver = (letter: number) => ShapeParams;
  *   2. shaping   – HarfBuzz picks joined forms and places diacritics
  *   3. width     – stretches each letter and re-lays the line out
  *   4. spacing   – opens gaps only between unconnected letters
- *   5. slant     – shear of the outlines
- *   6. distortion – smooth noise field on flattened outlines
+ *   5. weight    – thinner or bolder outlines (joined letters stay attached)
+ *   6. slant     – shear of the outlines
+ *   7. distortion – smooth noise field on flattened outlines
  *
  * Slant and distortion are applied together, blended across joins so
  * connected letters stay attached whatever their own settings (bend.ts).
  *
  * Every step reads the parameters of the letter it is working on, so each
- * letter can have its own values. Weight and the 3D settings are applied
- * by the renderers.
+ * letter can have its own values. The 3D settings are applied by the
+ * renderers.
  *
  * `params` is either one set of values for the whole word or a resolver
  * giving each letter its own.
@@ -50,6 +52,7 @@ export function buildComposition(
   line = applyWidth(line, (l) => resolve(l).width);
   line = applySpacing(line, (l) => resolve(l).spacing * perMille);
   let comp = toComposition(line);
+  comp = applyWeight(comp, (l) => resolve(l).weight);
   comp = bendLetters(comp, (l) => {
     const p = resolve(l);
     const slant = slantMap(p.slant);

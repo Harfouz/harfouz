@@ -74,7 +74,7 @@ const dictionary: Record<string, string> = {
   "keyboard.space": "مسافة",
   "keyboard.delete": "حذف",
   "param.weight": "السماكة",
-  "param.weight.hint": "يزيد سماكة الحرف (موجب) أو يرققه (سالب).",
+  "param.weight.hint": "أرفع (سالب): يفقد كل خط هذه النسبة من عرضه، فتبقى الخطوط الدقيقة دقيقة. أسمك (موجب): يتسع المحيط بالتساوي.",
   "param.slant": "الميل",
   "param.kashida": "الكشيدة",
   "param.kashida.hint": "يضيف تطويلًا بين الحروف المتصلة ثم يعيد التشكيل. على حرف: يمدّ الوصلة التي تليه.",

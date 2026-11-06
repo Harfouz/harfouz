@@ -16,7 +16,7 @@ Harfouz is made for designers, animators and type lovers. Its one rule: **the Ar
 - Type in Arabic with any keyboard: an on-screen Arabic keyboard (with all the harakat), or your own keys typing Arabic by position (Q → ض, A → ش…), whatever your layout.
 - 12 open-source typefaces in five styles: Naskh, Kufi, Ruqaa, Sans and Display.
 
-**Shape**: weight, slant, kashida (real tatweel insertion, reshaped, never splitting lam-alef), width, spacing that never breaks a join, and organic distortion.
+**Shape**: weight from hairline-thin to very bold (thinning takes the same share off every stroke, so the letter keeps its contrast and connected letters stay attached), slant, kashida (real tatweel insertion, reshaped, never splitting lam-alef), width, spacing that never breaks a join, and organic distortion.
 
 **Colour, material and texture**: solid, gradient (as many colours as you like, positioned and oriented freely), or one colour per letter from curated palettes. Six materials: satin, clay, paper, metal, glass and outline only. 17 textures generated in code, to combine with any material:
 - paper grain, paper fibres, linen;
@@ -89,7 +89,7 @@ text ─▶ kashida ─▶ shaping ─▶ layout modifiers ─▶ geometry modif
 1. **Kashida** (`src/core/kashida.ts`) inserts tatweel characters between letters that connect, before shaping, so the font draws real elongations.
 2. **Shaping** (`src/core/shaping.ts`): [HarfBuzz](https://harfbuzz.github.io) picks each letter's contextual form, applies ligatures and positions diacritics. Glyph outlines come from [opentype.js](https://opentype.js.org).
 3. **Layout modifiers** (`src/modifiers/`) change positions letter by letter. Spacing only opens gaps where letters are *not* joined (`src/core/joining.ts` knows the Arabic joining rules).
-4. **Geometry modifiers** change the outlines themselves: shear for slant, and a seeded Perlin noise field for distortion, sampled in line space so joins move together.
+4. **Geometry modifiers** change the outlines themselves: weight offsets them with the [Clipper](https://www.angusj.com/clipper2/Docs/Overview.htm) polygon library (`src/modifiers/weight.ts`), shear makes the slant, and a seeded Perlin noise field the distortion, sampled in line space so joins move together.
 5. **The renderer** (`src/render/three/ThreeRenderer.ts`) extrudes each letter and diacritic. `three/deform.ts` keeps connected letters attached: it finds where two letters meet (`src/modifiers/joins.ts`, also used for slant and distortion), blends their placements around that point, and keeps the rest of each letter rigid. It follows the `Renderer` interface (`src/render/Renderer.ts`), so another renderer could be plugged in later.
 
 Parameters are described once in `src/params/schema.ts`. The panel, per-letter overrides (`params/state.ts`) and animation (`params/animation.ts`) are all built from that list.
@@ -99,7 +99,7 @@ Parameters are described once in `src/params/schema.ts`. The panel, per-letter o
 ```
 public/fonts/        The 12 typefaces, each with its OFL licence
 src/core/            Fonts, shaping, Arabic joining rules, kashida
-src/modifiers/       Width, spacing, slant, distortion
+src/modifiers/       Width, spacing, weight, slant, distortion
 src/params/          Parameter schema, per-letter state, animation
 src/render/          three.js renderer, colours, materials, textures
 src/export/          Export formats and encoders

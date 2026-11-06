@@ -91,8 +91,8 @@ export type ParamDef = RangeParam | ChoiceParam | ColorParam | GradientParam;
 
 export const SHAPE_PARAMS = [
   {
-    kind: 'range', key: 'weight', label: 'Weight', min: -30, max: 80, step: 1, default: 0, unit: '‰',
-    hint: 'Thickens the outline (positive) or erodes it (negative).',
+    kind: 'range', key: 'weight', label: 'Weight', min: -75, max: 100, step: 1, default: 0, unit: '%',
+    hint: 'Thinner (negative): every stroke loses that share of its width, so fine strokes stay fine. Bolder (positive): the outline grows evenly.',
   },
   { kind: 'range', key: 'slant', label: 'Slant', min: -35, max: 35, step: 0.5, default: 0, unit: '°' },
   {

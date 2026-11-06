@@ -27,6 +27,7 @@ All typefaces are distributed under the [SIL Open Font License 1.1](https://open
 |---|---|---|
 | [harfbuzzjs](https://github.com/harfbuzz/harfbuzzjs) | Arabic shaping (joined forms, ligatures, diacritic placement) | MIT |
 | [opentype.js](https://github.com/opentypejs/opentype.js) | Reading glyph outlines | MIT |
+| [clipper-lib](https://sourceforge.net/projects/jsclipper/) (Clipper by Angus Johnson) | Offsetting outlines for the weight setting | BSL-1.0 |
 | [three.js](https://threejs.org) | 3D rendering, GLB export | MIT |
 | [Mediabunny](https://mediabunny.dev) | MP4 and WebM video export | MPL-2.0 (used unmodified, as a separate dependency) |
 | [gifenc](https://github.com/mattdesl/gifenc) | Animated GIF export | MIT |

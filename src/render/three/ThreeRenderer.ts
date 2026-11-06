@@ -261,17 +261,19 @@ export class ThreeRenderer implements Renderer {
         if (!shapes.length) continue;
         const p = letter(index);
         const depth = Math.max(1, p.depth * perMille);
-        const bevel = Math.min(p.bevel * perMille, depth / 2);
-        const weight = p.weight * perMille;
+        // Thinner strokes get a proportionally smaller bevel, or it would
+        // fold over strokes narrower than itself.
+        const thinning = p.weight < 0 ? 1 + p.weight / 100 : 1;
+        const bevel = Math.min(p.bevel * perMille * thinning, depth / 2);
+        // Weight is already in the outlines (modifiers/weight.ts).
         const geometry = new ExtrudeGeometry(shapes, {
           depth,
           curveSegments: 10,
-          bevelEnabled: bevel > 0 || weight !== 0,
+          bevelEnabled: bevel > 0,
           bevelThickness: bevel,
           bevelSize: bevel,
-          // Shrink the cap by the bevel so the silhouette keeps its drawn size,
-          // then grow or shrink it by the weight.
-          bevelOffset: weight - bevel,
+          // Shrink the cap by the bevel so the silhouette keeps its drawn size.
+          bevelOffset: -bevel,
           bevelSegments: bevel > 0 ? 4 : 1,
         });
         // Centre the thickness on z = 0 so letters of different depths line up.
