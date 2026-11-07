@@ -236,11 +236,33 @@ describe('a short letter lifted between two neighbours', () => {
     }
   });
 
-  it('keeps at least half its own move, and still meets both neighbours', () => {
-    expect(rise(500, 30)).toBeGreaterThanOrEqual(150 - 1e-6);
+  it('has all of its own move in its middle, and still meets both neighbours', () => {
+    expect(rise(500, 30)).toBeCloseTo(300);
+    expect(rise(500, 450)).toBeCloseTo(300);
     for (const [other, x] of [[0, 600], [2, 400]] as const) {
       const p = new Vector3(x, 5, 0);
       expect(deformPoint(1, lifted, fitted, p, 150).distanceTo(deformPoint(other, lifted, fitted, p, 150))).toBeLessThan(1e-6);
     }
+  });
+});
+
+describe('a kashida between two letters at different heights', () => {
+  // Letter 0 stretches a 600-unit kashida (x 400 → 1000) to the seam with letter 1 at x = 400.
+  const seams: Junction[] = [{ a: 0, b: 1, center: new Vector2(400, 0), radius: 20, kashida: 600 }];
+  const frames = new Map([
+    [0, frame(0, 1200, 0, 0, new Vector3(0, 200, 0))],
+    [1, frame(1, 200, 0, 0, new Vector3(0, 0, 0))],
+  ]);
+  const rise = (x: number) => deformPoint(0, frames, seams, new Vector3(x, 0, 0), 150).y;
+
+  it('slopes along the whole stroke instead of staying flat and kinking near the seam', () => {
+    const along = [450, 550, 650, 750, 850, 950].map(rise);
+    for (let i = 1; i < along.length; i++) expect(along[i]).toBeGreaterThan(along[i - 1]);
+    // Halfway along, about halfway between the seam (100) and the letter (200).
+    expect(rise(700)).toBeGreaterThan(130);
+    expect(rise(700)).toBeLessThan(170);
+    // Steps between evenly spaced points stay alike: no bump.
+    const steps = along.slice(1).map((v, i) => v - along[i]);
+    expect(Math.max(...steps)).toBeLessThan(3 * (along[along.length - 1] - along[0]) / steps.length);
   });
 });

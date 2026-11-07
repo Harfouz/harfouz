@@ -1,5 +1,5 @@
 import { Vector2 } from 'three';
-import { breaksAfter } from '../core/joining';
+import { breaksAfter, TATWEEL_CHAR } from '../core/joining';
 import type { Composition } from '../core/types';
 import { flattenCommands } from './geometry';
 
@@ -31,6 +31,13 @@ export interface Junction {
   radius: number;
   /** Length of the blend on each side of the seam, when it differs from the default. */
   softness?: number;
+  /**
+   * Length of the kashida letter `a` stretches out to this seam, if any:
+   * on that side the blend runs along the whole kashida, so it slopes
+   * evenly from one letter to the next instead of staying flat and then
+   * kinking near the seam.
+   */
+  kashida?: number;
 }
 
 /** Spans of every letter, in reading order, with whether it joins the next one. */
@@ -101,6 +108,15 @@ export function findJunctions(comp: Composition): Junction[] {
     outline.set(g.letter, polys);
   }
 
+  // Kashida inserted after a letter: tatweel glyphs belonging to a letter
+  // that has other glyphs too (a typed tatweel is a letter of its own).
+  const kashidaOf = new Map<number, number>();
+  for (const g of comp.glyphs) {
+    if (g.isMark || comp.text[g.cluster] !== TATWEEL_CHAR) continue;
+    const own = comp.glyphs.filter((o) => o.letter === g.letter && !o.isMark && comp.text[o.cluster] !== TATWEEL_CHAR).length;
+    if (own) kashidaOf.set(g.letter, (kashidaOf.get(g.letter) ?? 0) + g.advance);
+  }
+
   const junctions: Junction[] = [];
   const near = em * 0.35; // only look around the boundary
   const touch = em * 0.03; // two outlines "touch" closer than this
@@ -109,6 +125,7 @@ export function findJunctions(comp: Composition): Junction[] {
     const A = spans[i];
     const B = spans[i + 1];
     if (!A.joinsNext) continue;
+    const kashida = kashidaOf.get(A.letter);
     // Reading right to left: A ends (on its left) where B begins (on its right).
     const boundary = A.start;
     const polysA = outline.get(A.letter) ?? [];
@@ -129,6 +146,7 @@ export function findJunctions(comp: Composition): Junction[] {
         b: B.letter,
         center: new Vector2(boundary, (best[0] + best[1]) / 2),
         radius: (best[1] - best[0]) / 2 + inset + touch,
+        kashida,
       });
       continue;
     }
@@ -145,12 +163,12 @@ export function findJunctions(comp: Composition): Junction[] {
     if (shared.length) {
       const center = shared.reduce((s, p) => s.add(p), new Vector2()).divideScalar(shared.length);
       const radius = Math.max(...shared.map((p) => p.distanceTo(center))) + touch;
-      junctions.push({ a: A.letter, b: B.letter, center, radius });
+      junctions.push({ a: A.letter, b: B.letter, center, radius, kashida });
       continue;
     }
 
     // 3. Last resort: the boundary on the baseline.
-    junctions.push({ a: A.letter, b: B.letter, center: new Vector2(boundary, 0), radius: em * 0.12 });
+    junctions.push({ a: A.letter, b: B.letter, center: new Vector2(boundary, 0), radius: em * 0.12, kashida });
   }
   return junctions;
 }
@@ -171,10 +189,10 @@ const smootherstep = (t: number) => {
  * of a stem (or a dot above it) taking more of the letter's own move than
  * its foot and stretching away from it.
  *
- * Each junction's blend also stops short of the letter's other junctions,
- * so a short letter between two joins isn't pulled flat by both: on each
- * seam the two letters share half and half, and the letter keeps at least
- * that much of its own move in between.
+ * Each junction's blend also stops halfway to the letter's other
+ * junctions, so a short letter between two joins isn't pulled flat by
+ * both: on each seam the two letters share half and half, and by the
+ * middle of the letter it has all of its own move.
  */
 export function weightsFor(
   letter: number,
@@ -198,8 +216,12 @@ export function weightsFor(
     let reach = Math.max(j.softness ?? softness, 1e-3);
     for (const k of junctions) {
       if (k === j || !(k.a === letter || k.b === letter)) continue;
-      reach = Math.min(reach, Math.max(along(j.center.x, j.center.y, k.center.x, k.center.y) - j.radius - k.radius, 1));
+      // Half the way to the next seam: the blends of both seams are over
+      // by the middle, where the letter has all of its own move.
+      reach = Math.min(reach, Math.max((along(j.center.x, j.center.y, k.center.x, k.center.y) - j.radius - k.radius) / 2, 1));
     }
+    // Along a kashida, the blend spans the whole stroke.
+    if (j.kashida && j.a === letter) reach = Math.max(reach, j.kashida);
     const d = along(x, y, j.center.x, j.center.y);
     const w = 0.5 * (1 - smootherstep(Math.max(0, d - j.radius) / reach));
     if (w > 0) {
