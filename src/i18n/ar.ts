@@ -162,6 +162,8 @@ const dictionary: Record<string, string> = {
   "param.grain": "شدة الملمس",
   "param.furLength": "طول الفرو",
   "param.furLength.hint": "الملامس ذات الشعر تُنبت فروًا حقيقيًا ثلاثي الأبعاد. القيمة 0 تبقيه مسطحًا.",
+  "param.lightColor": "لون الضوء",
+  "param.lightColor.hint": "لون الضوء في المشهد: المصابيح والانعكاسات. الأبيض يُبقي الألوان كما هي.",
   "clock.speed": "السرعة",
   "clock.loop": "مدة الدورة",
   "clock.loop.hint": "تعود كل حركة إلى بدايتها بعد دورة واحدة.",

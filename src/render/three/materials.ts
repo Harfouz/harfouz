@@ -157,21 +157,7 @@ export class MaterialLibrary {
         });
         break;
       case 'glass':
-        // Physical transmission only refracts other objects, and the scene behind
-        // the word is empty, so a classic transparent glass with a clear coat
-        // reads much better here.
-        material = new MeshPhysicalMaterial({
-          ...base,
-          roughness: 0.05,
-          metalness: 0,
-          transparent: true,
-          opacity: 0.38,
-          depthWrite: false,
-          clearcoat: 1,
-          clearcoatRoughness: 0.04,
-          specularIntensity: 1,
-          envMapIntensity: 2.4,
-        });
+        material = glass(base);
         break;
       case 'satin':
       case 'outline':
@@ -199,3 +185,43 @@ export class MaterialLibrary {
 
 /** Least a metal reflects (linear), so black metal still shows its shape and texture. */
 const METAL_FLOOR = 0.14;
+
+/**
+ * Glass. Physical transmission only refracts other objects, and there is
+ * nothing behind the word but the page, so glass is drawn see-through
+ * instead, the way glass actually reads: almost clear where you look
+ * straight through it, more and more reflective towards the edges, where
+ * light grazes it (the Fresnel effect), and as bright as its reflections
+ * wherever it catches a light. Each letter keeps one clean surface (no
+ * stacked inner faces), so joins and overlaps don't show as cloudy patches.
+ */
+function glass(base: { color: Color; vertexColors: boolean }): MeshPhysicalMaterial {
+  const m = new MeshPhysicalMaterial({
+    ...base,
+    roughness: 0.03,
+    metalness: 0,
+    transparent: true,
+    opacity: GLASS_CLEAR,
+    clearcoat: 1,
+    clearcoatRoughness: 0.02,
+    specularIntensity: 1,
+    ior: 1.5,
+    envMapIntensity: 3.2,
+  });
+  m.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <opaque_fragment>',
+      `#include <opaque_fragment>
+      float glassFacing = abs(dot(normalize(normal), normalize(vViewPosition)));
+      float glassEdge = pow(1.0 - glassFacing, 3.0);
+      vec3 glassSpecular = reflectedLight.directSpecular + reflectedLight.indirectSpecular;
+      float glassShine = max(max(glassSpecular.r, glassSpecular.g), glassSpecular.b);
+      gl_FragColor.a = clamp(opacity + glassEdge * 0.3 + glassShine * 1.3, 0.0, 1.0);`,
+    );
+  };
+  m.customProgramCacheKey = () => 'harfouz-glass';
+  return m;
+}
+
+/** How opaque glass is where you look straight through it. */
+const GLASS_CLEAR = 0.08;

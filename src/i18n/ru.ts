@@ -162,6 +162,8 @@ const dictionary: Record<string, string> = {
   "param.grain": "Сила текстуры",
   "param.furLength": "Длина меха",
   "param.furLength.hint": "Ворсистые текстуры отращивают настоящий мех в 3D. 0 — плоско.",
+  "param.lightColor": "Цвет света",
+  "param.lightColor.hint": "Цвет света в сцене: лампы и отражения. Белый оставляет цвета как есть.",
   "clock.speed": "Скорость",
   "clock.loop": "Длина цикла",
   "clock.loop.hint": "Каждое движение возвращается к началу через один цикл.",

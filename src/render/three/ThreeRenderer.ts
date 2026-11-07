@@ -11,6 +11,8 @@ import {
   HemisphereLight,
   LineSegments,
   Mesh,
+  MeshBasicMaterial,
+  PointLight,
   PCFSoftShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
@@ -157,6 +159,9 @@ export class ThreeRenderer implements Renderer {
   private materials = new MaterialLibrary();
   private ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: 0.18 }));
   private key = new DirectionalLight(0xffffff, 2.4);
+  private fill = new HemisphereLight(0xffffff, 0x444444, 0.6);
+  private pmrem: PMREMGenerator;
+  private lightColor = '';
   private container?: HTMLElement;
   private resizeObserver = new ResizeObserver(() => this.resize());
   private needsFraming = true;
@@ -175,11 +180,11 @@ export class ThreeRenderer implements Renderer {
     r.domElement.className = 'three-canvas';
 
     // Soft studio reflections, useful for the material presets.
-    const pmrem = new PMREMGenerator(r);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.pmrem = new PMREMGenerator(r);
+    this.setLightColor('#ffffff');
     this.scene.environmentIntensity = 0.55;
 
-    this.scene.add(new HemisphereLight(0xffffff, 0x444444, 0.6));
+    this.scene.add(this.fill);
     this.key.position.set(-2, 4, 3);
     this.key.castShadow = true;
     this.key.shadow.mapSize.set(2048, 2048);
@@ -233,7 +238,31 @@ export class ThreeRenderer implements Renderer {
     this.needsFraming = true;
   }
 
+  /**
+   * Colour of the scene's light: the key lamp, the fill, and the studio
+   * that metal and glass reflect, so every material is lit consistently.
+   */
+  private setLightColor(value: string) {
+    const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : '#ffffff';
+    if (hex === this.lightColor) return;
+    this.lightColor = hex;
+    const tint = new Color(hex);
+    this.key.color.copy(tint);
+    this.fill.color.copy(tint);
+    this.fill.groundColor.setHex(0x444444).multiply(tint);
+    const room = new RoomEnvironment();
+    room.traverse((o) => {
+      if ((o as PointLight).isLight) (o as PointLight).color.multiply(tint);
+      const m = (o as Mesh).material as MeshBasicMaterial | undefined;
+      if (m && (m as MeshBasicMaterial).isMeshBasicMaterial) m.color.multiply(tint);
+    });
+    const previous = this.scene.environment;
+    this.scene.environment = this.pmrem.fromScene(room, 0.04).texture;
+    previous?.dispose();
+  }
+
   render({ composition: comp, word, letter, order: readingOrder, gradientOwner, selected, geometryKey }: RenderInput) {
+    this.setLightColor(word.lightColor);
     const em = comp.unitsPerEm;
     const perMille = em / 1000;
     const rad = Math.PI / 180;

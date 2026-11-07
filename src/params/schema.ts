@@ -278,6 +278,10 @@ export const LOOK_PARAMS = [
     hint: 'In 3D, hairy textures grow real fur. 0 keeps it flat.',
     showIf: { key: 'texture', oneOf: [...HAIRY] },
   },
+  {
+    kind: 'color', key: 'lightColor', label: 'Light colour', default: '#ffffff', scope: 'word',
+    hint: 'Colour of the light in the scene: lamps and reflections. White keeps colours as they are.',
+  },
 ] as const satisfies readonly ParamDef[];
 
 export interface LookParams {
@@ -293,6 +297,8 @@ export interface LookParams {
   /** Texture strength, in % (kept as "grain" from the first version). */
   grain: number;
   furLength: number;
+  /** Colour of the scene's light (lamps and reflections), for the whole word. */
+  lightColor: string;
 }
 
 /** The artboard's background, also used by exports set to "Same as the artboard". */

@@ -162,6 +162,8 @@ const dictionary: Record<string, string> = {
   "param.grain": "Intensité de la texture",
   "param.furLength": "Longueur de la fourrure",
   "param.furLength.hint": "Les textures à poils font pousser une vraie fourrure en 3D. 0 la garde à plat.",
+  "param.lightColor": "Couleur de la lumière",
+  "param.lightColor.hint": "Couleur de la lumière de la scène : lampes et reflets. Le blanc garde les couleurs telles quelles.",
   "clock.speed": "Vitesse",
   "clock.loop": "Durée de la boucle",
   "clock.loop.hint": "Chaque mouvement revient à son point de départ après une boucle.",
