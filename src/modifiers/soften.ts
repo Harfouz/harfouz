@@ -82,7 +82,11 @@ export function applySoften(comp: Composition, softOf: (letter: number) => numbe
 export const SOFT_EM = 0.12;
 
 /** Each pass rounds with this fraction of the previous radius. */
-const STEP = 0.45;
+const STEP = 0.65;
+/** Tips are rounded at least this fraction of the full radius. */
+const TIP = 0.12;
+/** …as long as this many tip radii (squared, against the piece's area / STROKE). */
+const TIP_LENGTH = 1.5;
 /** A leftover piece larger than this many squared radii is a stroke, not a corner. */
 const STROKE = 6;
 /** An inner fillet is smaller than this many squared radii (larger: a gap being filled). */
@@ -96,7 +100,9 @@ function rounded(input: Path[], r: number, em: number): Path[] {
   const fine = em / 800; // arc precision
   // Fewer points (thinned outlines are dense): much quicker, same shape.
   const shape = clean(input, (em / 5000) * SCALE);
-  const open = (radius: number) => offset(offset(shape, -radius, em, fine), radius, em, fine);
+  // Small arcs need a finer tolerance, or round dots come out as octagons.
+  const tolerance = (radius: number) => Math.min(fine, radius / SCALE / 40);
+  const open = (radius: number) => offset(offset(shape, -radius, em, tolerance(radius)), radius, em, tolerance(radius));
   // Outer corners: shrink then grow back. Strokes too thin for that
   // radius vanish; they come back from the next, smaller pass, and so on.
   // Only pieces the size of a stroke come back: the slivers cut off the
@@ -104,17 +110,27 @@ function rounded(input: Path[], r: number, em: number): Path[] {
   let result = open(r);
   const smallest = (em / 500) * SCALE;
   const strokes = (paths: Path[], size: number) => paths.filter((p) => Math.abs(area(p)) > STROKE * size * size);
+  // How many places a piece touches the shape: a tip sticking out of a
+  // stroke touches once; a bridge (a join, the thin part of a bowl) twice
+  // or more; a piece on its own, never.
+  const contacts = (piece: Path) => union(intersect(offset([piece], 2 * SCALE, em), result)).filter((p) => area(p) > 0).length;
+  // Below this radius, short tips stay rounded off; everything else (fine
+  // strokes, joins, pieces on their own) comes back.
+  const tip = Math.min(Math.max(smallest, r * TIP), (em / 250) * SCALE);
+  const isTip = (piece: Path) => Math.abs(area(piece)) < STROKE * (TIP_LENGTH * tip) ** 2 && contacts(piece) === 1;
   let missing = strokes(difference(shape, result), smallest);
-  for (let radius = r * STEP; missing.length; radius *= STEP) {
-    const last = radius < smallest;
-    const size = Math.max(radius, smallest);
-    const lost = strokes(last ? missing : intersect(open(radius), missing), size);
+  for (let radius = r * STEP; missing.length && radius >= smallest; radius *= STEP) {
+    let lost = strokes(intersect(open(radius), missing), radius);
+    if (radius < tip) lost = lost.filter((p) => !isTip(p));
     if (lost.length) {
       result = union([...result, ...lost]);
       missing = strokes(difference(missing, lost), smallest);
     }
-    if (last) break;
   }
+  // Nothing is ever lost: what's still missing comes back as it is,
+  // except the tips.
+  const back = missing.filter((p) => contacts(p) !== 1);
+  if (back.length) result = union([...result, ...back]);
   // Inner corners: grow then shrink back, keeping only the small fillets
   // (not whole gaps between strokes that happen to be close).
   const f = r / 3;

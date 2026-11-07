@@ -35,6 +35,8 @@ import { HAIRY } from '../textures';
 import type { Params } from '../../params/schema';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
+import { thinHalfWidth } from './strokeWidth';
+import { SOFT_EM } from '../../modifiers/soften';
 import { bridgeConnectors, deformGeometry, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
 import { furLayers, MaterialLibrary } from './materials';
 
@@ -264,7 +266,10 @@ export class ThreeRenderer implements Renderer {
         // Thinner strokes get a proportionally smaller bevel, or it would
         // fold over strokes narrower than itself.
         const thinning = p.weight < 0 ? 1 + p.weight / 100 : 1;
-        const bevel = Math.min(p.bevel * perMille * thinning, depth / 2);
+        // Soften rounds the edges of the volume too, as far as the thinner
+        // strokes allow: a fine stroke becomes a rounded rod, not a ribbon.
+        const soft = p.soften > 0 ? Math.min((p.soften / 100) * SOFT_EM * em, 0.85 * thinHalfWidth(shapes)) : 0;
+        const bevel = Math.min(Math.max(p.bevel * perMille * thinning, soft), depth / 2);
         // Weight is already in the outlines (modifiers/weight.ts).
         const geometry = new ExtrudeGeometry(shapes, {
           depth,
@@ -274,7 +279,7 @@ export class ThreeRenderer implements Renderer {
           bevelSize: bevel,
           // Shrink the cap by the bevel so the silhouette keeps its drawn size.
           bevelOffset: -bevel,
-          bevelSegments: bevel > 0 ? 4 : 1,
+          bevelSegments: bevel > 0 ? (soft > 0 ? 8 : 4) : 1,
         });
         // Centre the thickness on z = 0 so letters of different depths line up.
         geometry.translate(0, 0, -depth / 2);

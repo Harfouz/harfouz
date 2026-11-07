@@ -70,7 +70,7 @@ function resolveNow(i: number): Params {
 }
 
 const SHAPE_KEYS = SHAPE_PARAMS.map((d) => d.key);
-const VOLUME_KEYS = ['depth', 'bevel', 'weight'] as const;
+const VOLUME_KEYS = ['depth', 'bevel', 'weight', 'soften'] as const;
 let cached: { key: string; composition: Composition } | null = null;
 
 /** Draw the current frame. For exports, the selection frame is left out. */
