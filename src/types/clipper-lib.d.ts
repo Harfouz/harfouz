@@ -7,6 +7,7 @@ declare module 'clipper-lib' {
     Execute(clipType: number, solution: Path[], subjFill: number, clipFill: number): boolean;
     static Area(path: Path): number;
     static PointInPolygon(point: IntPoint, path: Path): number;
+    static CleanPolygons(paths: Path[], distance?: number): Path[];
   }
   class ClipperOffset {
     constructor(miterLimit?: number, arcTolerance?: number);

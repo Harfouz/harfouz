@@ -1,6 +1,6 @@
 import ClipperLib from 'clipper-lib';
-import type { Composition, GlyphShape, PathCommand } from '../core/types';
-import { flattenCommands } from './geometry';
+import type { Composition, GlyphShape } from '../core/types';
+import { intersect, offset, SCALE, toCommands, toPaths, union, unionPositive, type Path } from './clipper';
 import { letterSpans } from './joins';
 
 /**
@@ -83,11 +83,6 @@ export const BOLD_EM = 0.08;
 /** Strokes never lose more than this percentage of their width. */
 const MAX_THIN = 75;
 
-type Path = { X: number; Y: number }[];
-
-/** Font units are multiplied by this before Clipper rounds them to integers. */
-const SCALE = 8;
-
 /**
  * Thin a shape so each stroke keeps `1 - t` of its width: every outline
  * point moves inwards by `t` times the radius of the largest circle that
@@ -126,6 +121,35 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
     else grid.set(key, [j]);
   }
 
+  /** Distance from a point, inwards along its normal, to the outline on the other side. */
+  const acrossAt = (px: number, py: number, dx: number, dy: number, ci: number, i: number) => {
+    const n = contours[ci].length;
+    let best = 4 * maxRadius;
+    const seen = new Set<number>();
+    for (let s = 0; s * (cell / 2) <= best + cell; s++) {
+      const gx = Math.floor((px + dx * s * (cell / 2) - minX) / cell);
+      const gy = Math.floor((py + dy * s * (cell / 2) - minY) / cell);
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oy = -1; oy <= 1; oy++) {
+          const key = cellKey(gx + ox, gy + oy);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          for (const j of grid.get(key) ?? []) {
+            if (owner[j] === ci) {
+              const k = Math.abs(place[j] - i);
+              if (Math.min(k, n - k) <= 2 * NEAR) continue;
+            }
+            const ex = qx[j] - px;
+            const ey = qy[j] - py;
+            const along = ex * dx + ey * dy;
+            if (along > 0 && along < best && Math.abs(ex * dy - ey * dx) <= spacing) best = along;
+          }
+        }
+      }
+    }
+    return best;
+  };
+
   const moved: Path[] = [];
   const blobs: Path[] = [];
   contours.forEach((c, ci) => {
@@ -134,8 +158,6 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
     const nx = new Float64Array(n);
     const ny = new Float64Array(n);
     const radius = new Float64Array(n);
-    // How sharply the outline turns at each point (positive: a convex corner).
-    const turn = new Float64Array(n);
     for (let i = 0; i < n; i++) {
       // Tangent over a few points, so tiny wobbles don't tilt the normal.
       // Clipper's outer contours turn counter-clockwise and holes
@@ -145,11 +167,6 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
       const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
       nx[i] = -(b.y - a.y) / len;
       ny[i] = (b.x - a.x) / len;
-      const inX = c[i].x - a.x;
-      const inY = c[i].y - a.y;
-      const outX = b.x - c[i].x;
-      const outY = b.y - c[i].y;
-      turn[i] = Math.atan2(inX * outY - inY * outX, inX * outX + inY * outY);
 
       // Largest circle tangent here that no other outline point enters.
       let r = maxRadius;
@@ -198,41 +215,75 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
       return;
     }
 
-    // Near a convex corner, the circle at a point is squeezed by the
-    // neighbouring side, so the corner would hardly move while its sides
-    // do, leaving a spike. There, a point takes the stroke size measured
-    // just beside the corner, and the corner itself moves like a mitred
-    // offset: it stays sharp and follows its sides.
-    const corrected = Float64Array.from(measured);
+    // Near the end of a stroke the circle at a point is squeezed by the
+    // end itself, so the corners would hardly move while the sides do and
+    // the end would flare out like a fishtail. Each point takes instead the
+    // largest stroke measured a little way along the outline, as long as the
+    // outline between them doesn't turn inwards (that would be another
+    // stroke branching off, not the end of this one).
+    const step = new Float64Array(n); // turn from each point to the next
     for (let i = 0; i < n; i++) {
-      if (turn[i] < CORNER) continue;
-      // Not a corner if a sharper turn sits right beside it.
-      if (at(turn, i - 1) > turn[i] || at(turn, i + 1) >= turn[i]) continue;
-      // The stroke size beside the corner, looking just past its reach.
-      let size = 0;
-      for (let d = 1; d <= CORNER_REACH; d++) size = Math.max(size, at(measured, i - d), at(measured, i + d));
-      const reach = Math.min(CORNER_REACH, Math.ceil((1.5 * size) / spacing));
-      for (let d = -reach; d <= reach; d++) {
-        const j = (i + d + n) % n;
-        // Mitre: the corner point moves further along its diagonal.
-        const mitre = d === 0 ? Math.min(2, 1 / Math.max(Math.cos(turn[i] / 2), 0.5)) : 1;
-        corrected[j] = Math.max(corrected[j], size * mitre * (1 - Math.abs(d) / (reach + 1)) + measured[j] * (Math.abs(d) / (reach + 1)));
+      const a = at(c, i - 1);
+      const b = c[i];
+      const d = at(c, i + 1);
+      const ux = b.x - a.x, uy = b.y - a.y, vx = d.x - b.x, vy = d.y - b.y;
+      step[i] = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+    }
+    const stroke = Float64Array.from(measured);
+    for (let q = 0; q < n; q++) {
+      const reach = Math.min(SPREAD_MAX, Math.ceil((SPREAD * measured[q]) / spacing));
+      for (const dir of [-1, 1]) {
+        // Walk along the outline until it has turned round an end.
+        let turned = 0;
+        let end = 0;
+        for (let d = 1; d <= reach; d++) {
+          turned += step[(q + dir * d + n) % n];
+          if (turned < -CONCAVE) break;
+          if (turned >= END_TURN) {
+            end = d;
+            break;
+          }
+        }
+        for (let d = 1; d <= end; d++) {
+          const j = (q + dir * d + n) % n;
+          if (stroke[j] < measured[q]) stroke[j] = measured[q];
+        }
       }
     }
-
-    // Light smoothing, never moving a point further than its own stroke
-    // allows: averaging would otherwise carry wide strokes' radii into a
-    // narrow neck (where two letters meet, say) and cut it.
-    let smooth = corrected;
-    for (let pass = 0; pass < 4; pass++) {
+    // Only where the stroke is still that wide straight across: a narrow
+    // neck or a fine connecting stroke keeps its own size.
+    for (let i = 0; i < n; i++) {
+      if (stroke[i] > measured[i]) {
+        let across = Infinity;
+        for (const a of [-ACROSS_FAN, 0, ACROSS_FAN]) {
+          const dx = nx[i] * Math.cos(a) - ny[i] * Math.sin(a);
+          const dy = nx[i] * Math.sin(a) + ny[i] * Math.cos(a);
+          across = Math.min(across, acrossAt(c[i].x, c[i].y, dx, dy, ci, i) * Math.cos(a));
+        }
+        stroke[i] = Math.max(measured[i], Math.min(stroke[i], 0.5 * across));
+      }
+    }
+    // Smooth the stroke sizes, then the moved outline itself.
+    let smooth = stroke;
+    for (let pass = 0; pass < 6; pass++) {
       const next = new Float64Array(n);
       for (let i = 0; i < n; i++) next[i] = (at(smooth, i - 1) + 2 * smooth[i] + at(smooth, i + 1)) / 4;
       smooth = next;
     }
-    for (let i = 0; i < n; i++) smooth[i] = Math.min(smooth[i], corrected[i]);
-    moved.push(
-      c.map((p, i) => ({ X: Math.round(p.x + nx[i] * t * smooth[i]), Y: Math.round(p.y + ny[i] * t * smooth[i]) })),
-    );
+    for (let i = 0; i < n; i++) smooth[i] = Math.max(smooth[i], measured[i]);
+    let xs = Float64Array.from(c, (p, i) => p.x + nx[i] * t * smooth[i]);
+    let ys = Float64Array.from(c, (p, i) => p.y + ny[i] * t * smooth[i]);
+    for (let pass = 0; pass < 1; pass++) {
+      const x2 = new Float64Array(n);
+      const y2 = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        x2[i] = (at(xs, i - 1) + 2 * xs[i] + at(xs, i + 1)) / 4;
+        y2[i] = (at(ys, i - 1) + 2 * ys[i] + at(ys, i + 1)) / 4;
+      }
+      xs = x2;
+      ys = y2;
+    }
+    moved.push(Array.from(xs, (x, i) => ({ X: Math.round(x), Y: Math.round(ys[i]) })));
   });
   // Corners pushed past each other make small crossed loops; they turn the
   // wrong way, so keeping only positively filled areas drops them.
@@ -242,10 +293,16 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
 
 /** A shape whose area is under this many times its largest inner circle's is compact (a blob). */
 const BLOB = 3;
-/** A turn sharper than this (radians, over the tangent span) is a corner. */
-const CORNER = 0.6;
-/** How many points either side of a corner it can affect. */
-const CORNER_REACH = 24;
+/** A point takes the stroke size measured up to this many radii along the outline. */
+const SPREAD = 3.5;
+/** …and never more than this many points away. */
+const SPREAD_MAX = 90;
+/** Spreading stops where the outline has turned inwards by this much (radians). */
+const CONCAVE = 0.35;
+/** The width across is checked straight in and this much (radians) to either side. */
+const ACROSS_FAN = 0.45;
+/** An outline that turns this much (radians) within reach goes round the end of a stroke. */
+const END_TURN = 1.2;
 
 /** Neighbouring points left out when measuring the stroke at a point. */
 const NEAR = 3;
@@ -259,69 +316,5 @@ function resample(path: Path, spacing: number): { x: number; y: number }[] {
     const steps = Math.max(1, Math.ceil(Math.hypot(b.X - a.X, b.Y - a.Y) / spacing));
     for (let s = 0; s < steps; s++) out.push({ x: a.X + ((b.X - a.X) * s) / steps, y: a.Y + ((b.Y - a.Y) * s) / steps });
   }
-  return out;
-}
-
-function toPaths(commands: PathCommand[], step: number): Path[] {
-  const paths: Path[] = [];
-  let current: Path = [];
-  const close = () => {
-    if (current.length > 2) paths.push(current);
-    current = [];
-  };
-  for (const c of flattenCommands(commands, step)) {
-    if (c.type === 'Z') close();
-    else {
-      if (c.type === 'M') close();
-      current.push({ X: Math.round(c.x * SCALE), Y: Math.round(c.y * SCALE) });
-    }
-  }
-  close();
-  return paths;
-}
-
-function toCommands(paths: Path[]): PathCommand[] {
-  const out: PathCommand[] = [];
-  for (const path of paths) {
-    if (path.length < 3) continue;
-    path.forEach((p, i) => out.push({ type: i === 0 ? 'M' : 'L', x: p.X / SCALE, y: p.Y / SCALE }));
-    out.push({ type: 'Z' });
-  }
-  return out;
-}
-
-const { Clipper, ClipperOffset, ClipType, PolyType, PolyFillType, JoinType, EndType } = ClipperLib;
-
-function union(paths: Path[]): Path[] {
-  const c = new Clipper();
-  c.AddPaths(paths, PolyType.ptSubject, true);
-  const out: Path[] = [];
-  c.Execute(ClipType.ctUnion, out, PolyFillType.pftNonZero, PolyFillType.pftNonZero);
-  return out;
-}
-
-function unionPositive(paths: Path[]): Path[] {
-  const c = new Clipper();
-  c.AddPaths(paths, PolyType.ptSubject, true);
-  const out: Path[] = [];
-  c.Execute(ClipType.ctUnion, out, PolyFillType.pftPositive, PolyFillType.pftPositive);
-  return out;
-}
-
-function intersect(a: Path[], b: Path[]): Path[] {
-  const c = new Clipper();
-  c.AddPaths(a, PolyType.ptSubject, true);
-  c.AddPaths(b, PolyType.ptClip, true);
-  const out: Path[] = [];
-  c.Execute(ClipType.ctIntersection, out, PolyFillType.pftNonZero, PolyFillType.pftNonZero);
-  return out;
-}
-
-/** Grow (positive) or shrink the outline by `delta` (scaled units), with round corners. */
-function offset(paths: Path[], delta: number, em: number): Path[] {
-  const co = new ClipperOffset(2, (em / 500) * SCALE);
-  co.AddPaths(paths, JoinType.jtRound, EndType.etClosedPolygon);
-  const out: Path[] = [];
-  co.Execute(out, delta);
   return out;
 }

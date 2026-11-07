@@ -75,6 +75,8 @@ const dictionary: Record<string, string> = {
   "keyboard.delete": "Supprimer",
   "param.weight": "Épaisseur",
   "param.weight.hint": "Plus fin (négatif) : chaque trait perd ce pourcentage de sa largeur, les traits fins restent fins. Plus épais (positif) : le contour s'élargit partout.",
+  "param.soften": "Arrondi",
+  "param.soften.hint": "Arrondit les angles des lettres : bouts de traits, pointes et coins où les traits se rejoignent.",
   "param.slant": "Inclinaison",
   "param.kashida": "Kashida",
   "param.kashida.hint": "Insère des tatwils entre les lettres liées, puis remet en forme. Sur une lettre : allonge la liaison qui la suit.",

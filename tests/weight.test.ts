@@ -43,7 +43,7 @@ function points(comp: Composition) {
   return out;
 }
 
-describe('weight', () => {
+describe('weight and soften', () => {
   for (const font of fonts) {
     it.each(WORDS)(`${font.name}: %s gets thinner and bolder without losing a letter or a join`, (word) => {
       const rest = buildComposition(font, word, base);
@@ -83,6 +83,44 @@ describe('weight', () => {
     });
   }
 
+  for (const font of fonts) {
+    it.each(WORDS)(`${font.name}: %s softens without losing a stroke or a join`, (word) => {
+      const rest = buildComposition(font, word, base);
+      const soft = buildComposition(font, word, { ...base, soften: 100 });
+      const both = buildComposition(font, word, { ...base, soften: 100, weight: -60 });
+      const thin = buildComposition(font, word, { ...base, weight: -60 });
+      const a0 = areas(rest);
+      const aSoft = areas(soft);
+      const aBoth = areas(both);
+      const aThin = areas(thin);
+      for (const [letter, area] of a0) {
+        if (area < 1) continue;
+        // Rounding trims corners and fills inner ones: the letter keeps roughly its ink.
+        expect(aSoft.get(letter)!).toBeGreaterThan(area * 0.75);
+        expect(aSoft.get(letter)!).toBeLessThan(area * 1.3);
+        expect(aBoth.get(letter)!).toBeGreaterThan(aThin.get(letter)! * 0.6);
+      }
+      const em = rest.unitsPerEm;
+      const spans = letterSpans(rest);
+      for (const [before, after] of [[rest, soft], [thin, both]]) {
+        const p0 = points(before);
+        const p1 = points(after);
+        for (let i = 0; i < spans.length - 1; i++) {
+          if (!spans[i].joinsNext) continue;
+          const near = (m: Map<number, { x: number; y: number }[]>) => {
+            const A = m.get(spans[i].letter) ?? [];
+            const B = m.get(spans[i + 1].letter) ?? [];
+            let best = Infinity;
+            for (const p of A) for (const q of B) best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y));
+            return best;
+          };
+          if (near(p0) > em * 0.01) continue;
+          expect(near(p1)).toBeLessThan(em * 0.01);
+        }
+      }
+    });
+  }
+
   it('is quick enough to drag the slider', () => {
     const font = fonts[0];
     buildComposition(font, 'السَّلَامُ عَلَيْكُمْ', { ...base, weight: -50 });
@@ -90,6 +128,15 @@ describe('weight', () => {
     for (let i = 0; i < 5; i++) buildComposition(font, 'السَّلَامُ عَلَيْكُمْ', { ...base, weight: -50 - i });
     const each = (performance.now() - start) / 5;
     process.stderr.write(`weight: ${each.toFixed(0)} ms per composition\n`);
+    expect(each).toBeLessThan(400);
+  });
+
+  it('softens quickly enough to drag the slider', () => {
+    const font = fonts[0];
+    const start = performance.now();
+    for (let i = 0; i < 5; i++) buildComposition(font, 'السَّلَامُ عَلَيْكُمْ', { ...base, soften: 60 + i * 5 });
+    const each = (performance.now() - start) / 5;
+    process.stderr.write(`soften: ${each.toFixed(0)} ms per composition\n`);
     expect(each).toBeLessThan(400);
   });
 });

@@ -7,6 +7,7 @@ import { bendLetters } from './bend';
 import { slantMap, toComposition, type PointMap } from './geometry';
 import { noiseMap } from './noise';
 import { applySpacing } from './spacing';
+import { applySoften } from './soften';
 import { applyWeight } from './weight';
 import { applyWidth } from './width';
 
@@ -20,8 +21,9 @@ export type ShapeResolver = (letter: number) => ShapeParams;
  *   3. width     – stretches each letter and re-lays the line out
  *   4. spacing   – opens gaps only between unconnected letters
  *   5. weight    – thinner or bolder outlines (joined letters stay attached)
- *   6. slant     – shear of the outlines
- *   7. distortion – smooth noise field on flattened outlines
+ *   6. soften    – rounded corners (joined letters stay attached)
+ *   7. slant     – shear of the outlines
+ *   8. distortion – smooth noise field on flattened outlines
  *
  * Slant and distortion are applied together, blended across joins so
  * connected letters stay attached whatever their own settings (bend.ts).
@@ -53,6 +55,7 @@ export function buildComposition(
   line = applySpacing(line, (l) => resolve(l).spacing * perMille);
   let comp = toComposition(line);
   comp = applyWeight(comp, (l) => resolve(l).weight);
+  comp = applySoften(comp, (l) => resolve(l).soften);
   comp = bendLetters(comp, (l) => {
     const p = resolve(l);
     const slant = slantMap(p.slant);

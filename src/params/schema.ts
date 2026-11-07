@@ -94,6 +94,10 @@ export const SHAPE_PARAMS = [
     kind: 'range', key: 'weight', label: 'Weight', min: -75, max: 100, step: 1, default: 0, unit: '%',
     hint: 'Thinner (negative): every stroke loses that share of its width, so fine strokes stay fine. Bolder (positive): the outline grows evenly.',
   },
+  {
+    kind: 'range', key: 'soften', label: 'Soften', min: 0, max: 100, step: 1, default: 0, unit: '%',
+    hint: 'Rounds the corners of the letters: stroke ends, points and the angles where strokes meet.',
+  },
   { kind: 'range', key: 'slant', label: 'Slant', min: -35, max: 35, step: 0.5, default: 0, unit: '°' },
   {
     kind: 'range', key: 'kashida', label: 'Kashida', min: 0, max: 8, step: 1, default: 0, unit: ' ×',
@@ -122,6 +126,7 @@ export const SHAPE_PARAMS = [
 
 export interface ShapeParams {
   weight: number;
+  soften: number;
   slant: number;
   kashida: number;
   kashidaPlacement: 'last' | 'all';
