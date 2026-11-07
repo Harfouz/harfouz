@@ -187,41 +187,64 @@ export class MaterialLibrary {
 const METAL_FLOOR = 0.14;
 
 /**
- * Glass. Physical transmission only refracts other objects, and there is
- * nothing behind the word but the page, so glass is drawn see-through
- * instead, the way glass actually reads: almost clear where you look
- * straight through it, more and more reflective towards the edges, where
- * light grazes it (the Fresnel effect), and as bright as its reflections
- * wherever it catches a light. Each letter keeps one clean surface (no
- * stacked inner faces), so joins and overlaps don't show as cloudy patches.
+ * Glass, cut like crystal. Physical transmission only refracts other
+ * objects, and there is nothing behind the word but the page, so the
+ * crystal refracts the studio around it instead: each ray bends through
+ * the surface (index of a lead crystal) and picks up the bright lights and
+ * dark walls of the room, which gives crystal its sparkle and contrast.
+ * Red, green and blue bend slightly differently, so edges catch a faint
+ * rainbow. Mirror reflections sit on top; where the crystal holds no light
+ * the page shows through. There is no matte, diffuse part at all.
  */
 function glass(base: { color: Color; vertexColors: boolean }): MeshPhysicalMaterial {
   const m = new MeshPhysicalMaterial({
     ...base,
-    roughness: 0.03,
+    roughness: 0,
     metalness: 0,
     transparent: true,
-    opacity: GLASS_CLEAR,
-    clearcoat: 1,
-    clearcoatRoughness: 0.02,
     specularIntensity: 1,
-    ior: 1.5,
-    envMapIntensity: 3.2,
+    ior: CRYSTAL_IOR,
+    envMapIntensity: 2.6,
   });
   m.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <opaque_fragment>',
-      `#include <opaque_fragment>
-      float glassFacing = abs(dot(normalize(normal), normalize(vViewPosition)));
-      float glassEdge = pow(1.0 - glassFacing, 3.0);
-      vec3 glassSpecular = reflectedLight.directSpecular + reflectedLight.indirectSpecular;
-      float glassShine = max(max(glassSpecular.r, glassSpecular.g), glassSpecular.b);
-      gl_FragColor.a = clamp(opacity + glassEdge * 0.3 + glassShine * 1.3, 0.0, 1.0);`,
-    );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        #define CRYSTAL_IOR ${CRYSTAL_IOR.toFixed(3)}
+        #define CRYSTAL_GAIN 2.2
+        #define CRYSTAL_SPREAD ${CRYSTAL_SPREAD.toFixed(3)}`,
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        `#include <opaque_fragment>
+        vec3 crystalView = normalize(vViewPosition);
+        vec3 crystalNormal = normalize(normal);
+        vec3 crystalLight = vec3(0.0);
+        #ifdef ENVMAP_TYPE_PMREM
+          for (int c = 0; c < 3; c++) {
+            float eta = 1.0 / (CRYSTAL_IOR + (float(c) - 1.0) * CRYSTAL_SPREAD);
+            vec3 ray = refract(-crystalView, crystalNormal, eta);
+            if (dot(ray, ray) < 1e-4) ray = reflect(-crystalView, crystalNormal);
+            ray = transformDirectionByInverseViewMatrix(ray, viewMatrix);
+            crystalLight[c] = textureLod(envMap, envMapRotation * ray, 0.0)[c];
+          }
+          // Crystal is all contrast: the studio's walls fade to nothing and
+          // its lamps flare, like facets catching light.
+          crystalLight = pow(crystalLight * CRYSTAL_GAIN, vec3(3.0));
+        #endif
+        vec3 crystalMirror = reflectedLight.directSpecular + reflectedLight.indirectSpecular;
+        crystalMirror = pow(crystalMirror * 1.4, vec3(2.0)) * 1.5;
+        vec3 crystal = crystalMirror + crystalLight * diffuseColor.rgb * 0.85;
+        float crystalAlpha = clamp(max(max(crystal.r, crystal.g), crystal.b), 0.04, 1.0);
+        gl_FragColor = vec4(crystal / crystalAlpha, crystalAlpha * opacity);`,
+      );
   };
-  m.customProgramCacheKey = () => 'harfouz-glass';
+  m.customProgramCacheKey = () => 'harfouz-crystal';
   return m;
 }
 
-/** How opaque glass is where you look straight through it. */
-const GLASS_CLEAR = 0.08;
+/** How strongly crystal bends light (lead crystal). */
+const CRYSTAL_IOR = 1.6;
+/** Spread of that bending between red, green and blue: the rainbow on the edges. */
+const CRYSTAL_SPREAD = 0.025;
