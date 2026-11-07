@@ -36,7 +36,7 @@ import type { Params } from '../../params/schema';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
 import { inflatedGeometry } from './inflate';
-import { bridgeConnectors, deformGeometry, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
+import { anchorsFor, bridgeConnectors, deformGeometry, type Anchor, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
 import { furLayers, MaterialLibrary } from './materials';
 
 /** How far in from the outline 100 % Soften swells the volume, in ems. */
@@ -152,6 +152,8 @@ export class ThreeRenderer implements Renderer {
   private volumes = new Map<number, { geometry: BufferGeometry; pivotY: number }>();
   private volumesKey = '';
   private junctionCache: ReturnType<typeof findJunctions> = [];
+  /** For each letter: which letter's blend it follows, and where its dots hang (see `anchorsFor`). */
+  private anchors = new Map<number, { follow: number; anchor: Anchor }>();
   private materials = new MaterialLibrary();
   private ground = new Mesh(new PlaneGeometry(1, 1), new ShadowMaterial({ opacity: 0.18 }));
   private key = new DirectionalLight(0xffffff, 2.4);
@@ -288,6 +290,17 @@ export class ThreeRenderer implements Renderer {
         this.volumes.set(index, { geometry, pivotY: geometry.boundingBox!.getCenter(new Vector3()).y });
       }
       this.junctionCache = findJunctions(comp);
+      // Dots follow their letter's body; diacritics follow their base letter's.
+      this.anchors.clear();
+      const shapesOf = new Map(shapesByLetter(comp).map(({ letter: l, shapes }) => [l, shapes]));
+      const baseOfMark = new Map(comp.glyphs.map((g) => [g.letter, g.base]));
+      const seamsOf = (l: number) => this.junctionCache.filter((j) => j.a === l || j.b === l).map((j) => j.center);
+      for (const [l, shapes] of shapesOf) {
+        const base = baseOfMark.get(l);
+        const body = base !== undefined && base !== l ? shapesOf.get(base) : undefined;
+        if (body) this.anchors.set(l, { follow: base!, anchor: anchorsFor(body, seamsOf(base!), em, shapes) });
+        else this.anchors.set(l, { follow: l, anchor: anchorsFor(shapes, seamsOf(l), em) });
+      }
       this.volumesKey = geometryKey ?? '';
     }
 
@@ -371,7 +384,8 @@ export class ThreeRenderer implements Renderer {
       if (gradient) paintGradient(geometry, gradient);
       const color = fill === 'gradient' ? null : fill;
 
-      deformGeometry(geometry, index, frames, junctions, softness);
+      const anchored = this.anchors.get(index);
+      deformGeometry(geometry, anchored?.follow ?? index, frames, junctions, softness, anchored?.anchor);
 
       // One group per letter, holding the volume (and its edges for the outline preset).
       const group = new Group();

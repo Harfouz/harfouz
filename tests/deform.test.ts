@@ -215,3 +215,32 @@ describe('tatweels between moved letters', () => {
     expect(frames.get(3)!.offset.y).toBe(0); // last in the word: nothing to bridge to
   });
 });
+
+describe('a short letter lifted between two neighbours', () => {
+  // Letter 1 sits between letters 0 (right) and 2 (left), joined on the baseline.
+  const seams: Junction[] = [
+    { a: 0, b: 1, center: new Vector2(600, 0), radius: 20 },
+    { a: 1, b: 2, center: new Vector2(400, 0), radius: 20 },
+  ];
+  const lifted = new Map([
+    [0, frame(0, 800, 0, 0, new Vector3(0, 0, 0))],
+    [1, frame(1, 500, 0, 0, new Vector3(0, 300, 0))],
+    [2, frame(2, 200, 0, 0, new Vector3(0, 0, 0))],
+  ]);
+  const fitted = fitJoins(seams, lifted, 150, 1200, new Map([[0, 400], [1, 200], [2, 400]]));
+  const rise = (x: number, y: number) => deformPoint(1, lifted, fitted, new Vector3(x, y, 0), 150).y - y;
+
+  it('rises as one piece: the top of a stem keeps with its foot', () => {
+    for (const x of [470, 500, 530]) {
+      expect(Math.abs(rise(x, 450) - rise(x, 30))).toBeLessThan(45); // (it was 150: half the lift)
+    }
+  });
+
+  it('keeps at least half its own move, and still meets both neighbours', () => {
+    expect(rise(500, 30)).toBeGreaterThanOrEqual(150 - 1e-6);
+    for (const [other, x] of [[0, 600], [2, 400]] as const) {
+      const p = new Vector3(x, 5, 0);
+      expect(deformPoint(1, lifted, fitted, p, 150).distanceTo(deformPoint(other, lifted, fitted, p, 150))).toBeLessThan(1e-6);
+    }
+  });
+});

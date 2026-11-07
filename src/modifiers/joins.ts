@@ -164,6 +164,17 @@ const smootherstep = (t: number) => {
 /**
  * Weights of the letters influencing a point of `letter`, given the
  * junctions that letter takes part in.
+ *
+ * Distance from a junction counts mostly along the line: height counts
+ * for only `UPRIGHT` of it. A letter's upright strokes and its dots then
+ * move as one with the part of the letter under them, instead of the top
+ * of a stem (or a dot above it) taking more of the letter's own move than
+ * its foot and stretching away from it.
+ *
+ * Each junction's blend also stops short of the letter's other junctions,
+ * so a short letter between two joins isn't pulled flat by both: on each
+ * seam the two letters share half and half, and the letter keeps at least
+ * that much of its own move in between.
  */
 export function weightsFor(
   letter: number,
@@ -174,30 +185,39 @@ export function weightsFor(
 ): Map<number, number> {
   const weights = new Map<number, number>();
   let others = 0;
+  const along = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, UPRIGHT * (ay - by));
   for (const j of junctions) {
     const other = j.a === letter ? j.b : j.a;
-    const d = Math.hypot(x - j.center.x, y - j.center.y);
-    if (d <= j.radius) {
+    if (Math.hypot(x - j.center.x, y - j.center.y) <= j.radius) {
       // On the seam: exactly half and half, identical from both sides.
       return new Map([
         [letter, 0.5],
         [other, 0.5],
       ]);
     }
-    const w = 0.5 * (1 - smootherstep((d - j.radius) / Math.max(j.softness ?? softness, 1e-3)));
+    let reach = Math.max(j.softness ?? softness, 1e-3);
+    for (const k of junctions) {
+      if (k === j || !(k.a === letter || k.b === letter)) continue;
+      reach = Math.min(reach, Math.max(along(j.center.x, j.center.y, k.center.x, k.center.y) - j.radius - k.radius, 1));
+    }
+    const d = along(x, y, j.center.x, j.center.y);
+    const w = 0.5 * (1 - smootherstep(Math.max(0, d - j.radius) / reach));
     if (w > 0) {
       weights.set(other, (weights.get(other) ?? 0) + w);
       others += w;
     }
   }
   if (others > 1) {
-    // A very short letter between two close junctions: share fairly.
+    // Safety net: never more than all of it.
     for (const [k, w] of weights) weights.set(k, w / others);
     others = 1;
   }
   weights.set(letter, 1 - others);
   return weights;
 }
+
+/** How much height counts, against distance along the line, in a join's blend. */
+const UPRIGHT = 0.1;
 
 /** Junctions a letter takes part in. */
 export function junctionsOf(letter: number, junctions: Junction[]): Junction[] {

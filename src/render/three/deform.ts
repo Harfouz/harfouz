@@ -1,4 +1,4 @@
-import { Euler, Matrix4, Quaternion, Vector3, type BufferGeometry } from 'three';
+import { Euler, Matrix4, Quaternion, ShapeUtils, Vector3, type BufferGeometry, type Shape } from 'three';
 import { junctionsOf, weightsFor, type Junction } from '../../modifiers/joins';
 
 export { findJunctions, junctionsOf, letterSpans, weightsFor, type Junction, type LetterSpan } from '../../modifiers/joins';
@@ -164,6 +164,49 @@ export function deformPoint(
   return blend.at(p.x, p.y).point(p.clone());
 }
 
+/** Where a point takes its placement from, if not from itself (see `anchorsFor`). */
+export type Anchor = (x: number, y: number) => { x: number; y: number } | null;
+
+/**
+ * Dots and other small pieces of a letter (and its diacritics) move with
+ * the part of the letter they belong to. Placement blends with distance
+ * from the joins, so on a short letter between two joins a dot high above
+ * the stroke would otherwise take more of the letter's own move than the
+ * stroke under it, and float off. Each piece instead moves rigidly, as the
+ * nearest point of the letter's body does.
+ *
+ * `body` is the letter's shapes and `seams` where it joins its neighbours:
+ * the shapes reaching a seam are the body, the rest are pieces (with no
+ * seam, the largest shape is the body). `pieces`, if given, are anchored
+ * as one (a diacritic).
+ */
+export function anchorsFor(body: Shape[], seams: { x: number; y: number }[], em: number, pieces?: Shape[]): Anchor {
+  const near = 0.03 * em;
+  const sized = body.map((shape) => {
+    const pts = shape.getPoints(4);
+    const touches = seams.some((c) => pts.some((p) => Math.hypot(p.x - c.x, p.y - c.y) < near));
+    return { shape, touches, area: Math.abs(ShapeUtils.area(pts)) };
+  });
+  const largest = sized.reduce((a, b) => (b.area > a.area ? b : a), sized[0]);
+  const isBody = (s: (typeof sized)[number]) => (sized.some((t) => t.touches) ? s.touches : s === largest);
+  const main = sized.filter(isBody).map((s) => s.shape);
+  const small = pieces ?? sized.filter((s) => !isBody(s)).map((s) => s.shape);
+  if (!small.length || !main.length) return () => null;
+  const outline = main.flatMap((s) => s.getPoints(4));
+  const islands = small.map((shape) => {
+    const pts = shape.getPoints(4);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of pts) (x0 = Math.min(x0, p.x)), (x1 = Math.max(x1, p.x)), (y0 = Math.min(y0, p.y)), (y1 = Math.max(y1, p.y));
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    let best = outline[0];
+    for (const p of outline) if (Math.hypot(p.x - cx, p.y - cy) < Math.hypot(best.x - cx, best.y - cy)) best = p;
+    const pad = 0.05 * Math.max(x1 - x0, y1 - y0, 1);
+    return { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad, anchor: { x: best.x, y: best.y } };
+  });
+  if (pieces) return () => islands[0].anchor; // a diacritic: the whole geometry is one piece
+  return (x, y) => islands.find((i) => x >= i.x0 && x <= i.x1 && y >= i.y0 && y <= i.y1)?.anchor ?? null;
+}
+
 /**
  * Deform a letter's geometry in place. Normals are turned by the same
  * blended rotation so curved surfaces keep their smooth shading.
@@ -174,6 +217,7 @@ export function deformGeometry(
   frames: Map<number, LetterFrame>,
   junctions: Junction[],
   softness: number,
+  anchor: Anchor = () => null,
 ) {
   const position = geometry.getAttribute('position');
   const normal = geometry.getAttribute('normal');
@@ -182,7 +226,8 @@ export function deformGeometry(
   const n = new Vector3();
   for (let i = 0; i < position.count; i++) {
     p.fromBufferAttribute(position, i);
-    blend.at(p.x, p.y).point(p);
+    const at = anchor(p.x, p.y);
+    blend.at(at ? at.x : p.x, at ? at.y : p.y).point(p);
     position.setXYZ(i, p.x, p.y, p.z);
     if (normal) {
       n.fromBufferAttribute(normal, i).applyQuaternion(blend.rotation);
