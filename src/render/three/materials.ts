@@ -145,7 +145,16 @@ export class MaterialLibrary {
         material = new MeshStandardMaterial({ ...base, roughness: 1, metalness: 0 });
         break;
       case 'metal':
-        material = new MeshStandardMaterial({ ...base, roughness: 0.24, metalness: 1, envMapIntensity: 2.2 });
+        // A metal's colour is what it reflects: pure black would reflect
+        // nothing and hide its shape and texture. Every real metal reflects
+        // some light, so dark colours keep a floor, like black chrome.
+        material = new MeshStandardMaterial({
+          ...base,
+          color: base.color.clone().multiplyScalar(1 - METAL_FLOOR).addScalar(METAL_FLOOR),
+          roughness: 0.24,
+          metalness: 1,
+          envMapIntensity: 2.2,
+        });
         break;
       case 'glass':
         // Physical transmission only refracts other objects, and the scene behind
@@ -187,3 +196,6 @@ export class MaterialLibrary {
     this.maps.clear();
   }
 }
+
+/** Least a metal reflects (linear), so black metal still shows its shape and texture. */
+const METAL_FLOOR = 0.14;
