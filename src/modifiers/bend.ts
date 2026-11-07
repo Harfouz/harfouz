@@ -1,6 +1,6 @@
 import type { Composition } from '../core/types';
 import { flattenCommands, mapCommands, type PointMap } from './geometry';
-import { findJunctions, junctionsOf, weightsFor } from './joins';
+import { findJunctions, junctionsOf, spanJoins, weightsFor } from './joins';
 
 /** What one letter's settings do to its outline. */
 export interface LetterBend {
@@ -33,9 +33,9 @@ export function bendLetters(comp: Composition, bendOf: (letter: number) => Lette
 
   // Same settings everywhere: one shared field, joins stay attached on their own.
   const keys = new Set(comp.glyphs.filter((g) => !g.isMark).map((g) => bend(g.letter).key));
-  const junctions = keys.size > 1 ? findJunctions(comp) : [];
   const em = comp.unitsPerEm;
   const softness = em * 0.3;
+  const junctions = keys.size > 1 ? spanJoins(findJunctions(comp), softness) : [];
   const step = em / 80;
 
   return {

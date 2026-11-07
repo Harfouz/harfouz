@@ -2,6 +2,7 @@ import { ExtrudeGeometry, Vector2, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { buildComposition } from '../src/modifiers';
 import { ParamState } from '../src/params/state';
+import { sliceAlongX } from '../src/render/three/slice';
 import {
   deformGeometry,
   deformPoint,
@@ -97,8 +98,9 @@ describe.each(fonts)('junctions with $name', (font) => {
         letters.map(({ letter, shapes }) => {
           const g = new ExtrudeGeometry(shapes, { depth: 200, bevelEnabled: false, curveSegments: 6 });
           g.translate(0, 0, -100);
-          if (move) deformGeometry(g, letter, moved, found, 260);
-          return [letter, g.getAttribute('position')];
+          const sliced = sliceAlongX(g, font.unitsPerEm / 60);
+          if (move) deformGeometry(sliced, letter, moved, found, 260);
+          return [letter, sliced.getAttribute('position')];
         }),
       );
     // Closest pair of vertices between two letters.
@@ -258,9 +260,11 @@ describe('a kashida between two letters at different heights', () => {
   it('slopes along the whole stroke instead of staying flat and kinking near the seam', () => {
     const along = [450, 550, 650, 750, 850, 950].map(rise);
     for (let i = 1; i < along.length; i++) expect(along[i]).toBeGreaterThan(along[i - 1]);
-    // Halfway along, about halfway between the seam (100) and the letter (200).
-    expect(rise(700)).toBeGreaterThan(130);
-    expect(rise(700)).toBeLessThan(170);
+    // Halfway along, somewhere between the neighbour (0) and the letter (200).
+    expect(rise(700)).toBeGreaterThan(50);
+    expect(rise(700)).toBeLessThan(150);
+    // The letter's body, past the kashida, has its whole move.
+    expect(rise(1200)).toBeCloseTo(200);
     // Steps between evenly spaced points stay alike: no bump.
     const steps = along.slice(1).map((v, i) => v - along[i]);
     expect(Math.max(...steps)).toBeLessThan(3 * (along[along.length - 1] - along[0]) / steps.length);

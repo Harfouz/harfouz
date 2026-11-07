@@ -38,6 +38,9 @@ export interface Junction {
    * kinking near the seam.
    */
   kashida?: number;
+  /** How far the blend reaches into letter a and letter b (see `spanJoins`). */
+  reachA?: number;
+  reachB?: number;
 }
 
 /** Spans of every letter, in reading order, with whether it joins the next one. */
@@ -180,50 +183,66 @@ const smootherstep = (t: number) => {
 };
 
 /**
+ * How far each join's blend reaches into its two letters (font units,
+ * along the line). The blend spreads as wide as the letters allow, so
+ * the stroke curves gently from one letter's placement to the next:
+ *
+ * - up to `softness` (or the join's own fitted softness) on each side;
+ * - never past the middle of a letter's body, so a letter joined on both
+ *   sides still has all of its own placement in its middle;
+ * - along the whole of a kashida, which is a connecting stroke.
+ *
+ * `widths` (letter → width on the line) keep a letter joined on one side
+ * only from being bent over its whole width.
+ */
+export function spanJoins(junctions: Junction[], softness: number, widths?: Map<number, number>): Junction[] {
+  const kashidaAt = (l: number, j: Junction) => (j.a === l ? (j.kashida ?? 0) : 0);
+  const into = (l: number, j: Junction) => {
+    const soft = Math.max(j.softness ?? softness, 1);
+    const own = kashidaAt(l, j);
+    const others = junctions.filter((k) => k !== j && (k.a === l || k.b === l));
+    let body = Infinity;
+    for (const k of others) body = Math.min(body, Math.abs(k.center.x - j.center.x) - own - kashidaAt(l, k));
+    const share = others.length ? 0.5 : SINGLE;
+    if (!others.length && widths?.has(l)) body = widths.get(l)! - own;
+    return own + Math.min(soft, Math.max(share * body, 1));
+  };
+  return junctions.map((j) => ({ ...j, reachA: into(j.a, j), reachB: into(j.b, j) }));
+}
+
+/** A letter joined on one side only bends over at most this share of its body. */
+const SINGLE = 0.6;
+
+/**
  * Weights of the letters influencing a point of `letter`, given the
  * junctions that letter takes part in.
  *
- * Distance from a junction counts mostly along the line: height counts
- * for only `UPRIGHT` of it. A letter's upright strokes and its dots then
- * move as one with the part of the letter under them, instead of the top
- * of a stem (or a dot above it) taking more of the letter's own move than
- * its foot and stretching away from it.
- *
- * Each junction's blend also stops halfway to the letter's other
- * junctions, so a short letter between two joins isn't pulled flat by
- * both: on each seam the two letters share half and half, and by the
- * middle of the letter it has all of its own move.
+ * Each join blends its two letters along the line only: across the
+ * stretch from `reachB` before the seam to `reachA` after it, the weight
+ * eases smoothly from one letter to the other. Height doesn't count, so
+ * upright strokes and dots move as one with the part of the letter under
+ * them. Both letters see exactly the same blend at the same spot, so the
+ * stroke never breaks, whatever the font, and it bends in a smooth curve.
  */
 export function weightsFor(
   letter: number,
   junctions: Junction[],
   x: number,
-  y: number,
+  _y: number,
   softness: number,
 ): Map<number, number> {
   const weights = new Map<number, number>();
   let others = 0;
-  const along = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, UPRIGHT * (ay - by));
   for (const j of junctions) {
+    if (j.a !== letter && j.b !== letter) continue;
+    const soft = Math.max(j.softness ?? softness, 1e-3);
+    const intoA = j.reachA ?? (j.kashida ?? 0) + soft;
+    const intoB = j.reachB ?? soft;
+    // Reading right to left: letter a lies at larger x, letter b at smaller x.
+    const t = (x - (j.center.x - intoB)) / (intoA + intoB);
+    const towardA = smootherstep(t);
     const other = j.a === letter ? j.b : j.a;
-    if (Math.hypot(x - j.center.x, y - j.center.y) <= j.radius) {
-      // On the seam: exactly half and half, identical from both sides.
-      return new Map([
-        [letter, 0.5],
-        [other, 0.5],
-      ]);
-    }
-    let reach = Math.max(j.softness ?? softness, 1e-3);
-    for (const k of junctions) {
-      if (k === j || !(k.a === letter || k.b === letter)) continue;
-      // Half the way to the next seam: the blends of both seams are over
-      // by the middle, where the letter has all of its own move.
-      reach = Math.min(reach, Math.max((along(j.center.x, j.center.y, k.center.x, k.center.y) - j.radius - k.radius) / 2, 1));
-    }
-    // Along a kashida, the blend spans the whole stroke.
-    if (j.kashida && j.a === letter) reach = Math.max(reach, j.kashida);
-    const d = along(x, y, j.center.x, j.center.y);
-    const w = 0.5 * (1 - smootherstep(Math.max(0, d - j.radius) / reach));
+    const w = j.a === letter ? 1 - towardA : towardA;
     if (w > 0) {
       weights.set(other, (weights.get(other) ?? 0) + w);
       others += w;
@@ -237,9 +256,6 @@ export function weightsFor(
   weights.set(letter, 1 - others);
   return weights;
 }
-
-/** How much height counts, against distance along the line, in a join's blend. */
-const UPRIGHT = 0.1;
 
 /** Junctions a letter takes part in. */
 export function junctionsOf(letter: number, junctions: Junction[]): Junction[] {

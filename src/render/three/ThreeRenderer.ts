@@ -38,6 +38,7 @@ import type { Params } from '../../params/schema';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
 import { inflatedGeometry } from './inflate';
+import { sliceAlongX } from './slice';
 import { anchorsFor, bridgeConnectors, deformGeometry, type Anchor, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
 import { furLayers, MaterialLibrary } from './materials';
 
@@ -314,7 +315,8 @@ export class ThreeRenderer implements Renderer {
             bevelOffset: -bevel,
             bevelSegments: bevel > 0 ? 4 : 1,
           }).translate(0, 0, -depth / 2); // thickness centred on z = 0 so letters of different depths line up
-        const geometry = (inflate > 0 ? inflatedGeometry(shapes, inflate, depth / 2, em) : null) ?? extruded();
+        // Sliced along the line so every stroke can curve where joins bend it.
+        const geometry = sliceAlongX((inflate > 0 ? inflatedGeometry(shapes, inflate, depth / 2, em) : null) ?? extruded(), em * SLICE_EM);
         geometry.computeBoundingBox();
         this.volumes.set(index, { geometry, pivotY: geometry.boundingBox!.getCenter(new Vector3()).y });
       }
@@ -588,3 +590,6 @@ export class ThreeRenderer implements Renderer {
     this.renderer.domElement.remove();
   }
 }
+
+/** Width of the slices letters are cut into so they can bend (in ems). */
+const SLICE_EM = 1 / 60;

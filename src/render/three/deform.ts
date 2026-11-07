@@ -1,5 +1,5 @@
-import { Euler, Matrix4, Quaternion, ShapeUtils, Vector3, type BufferGeometry, type Shape } from 'three';
-import { junctionsOf, weightsFor, type Junction } from '../../modifiers/joins';
+import { Euler, Matrix4, Quaternion, ShapeUtils, Vector3, type Vector2, type BufferGeometry, type Shape } from 'three';
+import { junctionsOf, spanJoins, weightsFor, type Junction } from '../../modifiers/joins';
 
 export { findJunctions, junctionsOf, letterSpans, weightsFor, type Junction, type LetterSpan } from '../../modifiers/joins';
 
@@ -65,7 +65,7 @@ export function fitJoins(
   widths: Map<number, number> = new Map(),
 ): Junction[] {
   const cap = Math.max(softness, max);
-  return junctions.map((j) => {
+  const fitted = junctions.map((j) => {
     const a = frames.get(j.a);
     const b = frames.get(j.b);
     if (!a || !b) return j;
@@ -76,6 +76,7 @@ export function fitJoins(
     const across = Math.min(widths.get(j.a) ?? 0, widths.get(j.b) ?? 0) * moved;
     return { ...j, softness: Math.min(Math.max(softness, gap * 1.25, across), cap) };
   });
+  return spanJoins(fitted, softness, widths.size ? widths : undefined);
 }
 
 /**
@@ -152,6 +153,10 @@ class Blender {
   }
 }
 
+/** Joins with their reach worked out (see `spanJoins`), if not done already. */
+const spanned = (junctions: Junction[], softness: number) =>
+  junctions.every((j) => j.reachA !== undefined) ? junctions : spanJoins(junctions, softness);
+
 /** Move one point of `letter`. */
 export function deformPoint(
   letter: number,
@@ -160,8 +165,32 @@ export function deformPoint(
   p: Vector3,
   softness: number,
 ): Vector3 {
-  const blend = new Blender(letter, frames, junctionsOf(letter, junctions), softness);
+  const blend = new Blender(letter, frames, junctionsOf(letter, spanned(junctions, softness)), softness);
   return blend.at(p.x, p.y).point(p.clone());
+}
+
+/** Whether two closed outlines overlap or come within `near` of each other. */
+function touching(a: Vector2[], b: Vector2[], near: number): boolean {
+  const box = (pts: Vector2[]) => pts.reduce((r, p) => [Math.min(r[0], p.x), Math.min(r[1], p.y), Math.max(r[2], p.x), Math.max(r[3], p.y)], [Infinity, Infinity, -Infinity, -Infinity]);
+  const [ax0, ay0, ax1, ay1] = box(a);
+  const [bx0, by0, bx1, by1] = box(b);
+  if (ax0 > bx1 + near || bx0 > ax1 + near || ay0 > by1 + near || by0 > ay1 + near) return false;
+  const inside = (p: Vector2, poly: Vector2[]) => {
+    let c = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const u = poly[i], v = poly[j];
+      if (u.y > p.y !== v.y > p.y && p.x < ((v.x - u.x) * (p.y - u.y)) / (v.y - u.y) + u.x) c = !c;
+    }
+    return c;
+  };
+  const toSegment = (p: Vector2, u: Vector2, v: Vector2) => {
+    const dx = v.x - u.x, dy = v.y - u.y;
+    const t = Math.max(0, Math.min(1, ((p.x - u.x) * dx + (p.y - u.y) * dy) / (dx * dx + dy * dy || 1)));
+    return Math.hypot(p.x - u.x - t * dx, p.y - u.y - t * dy);
+  };
+  const close = (pts: Vector2[], poly: Vector2[]) =>
+    pts.some((p) => inside(p, poly) || poly.some((u, i) => toSegment(p, u, poly[(i + 1) % poly.length]) < near));
+  return close(a, b) || close(b, a);
 }
 
 /** Where a point takes its placement from, if not from itself (see `anchorsFor`). */
@@ -185,10 +214,24 @@ export function anchorsFor(body: Shape[], seams: { x: number; y: number }[], em:
   const sized = body.map((shape) => {
     const pts = shape.getPoints(4);
     const touches = seams.some((c) => pts.some((p) => Math.hypot(p.x - c.x, p.y - c.y) < near));
-    return { shape, touches, area: Math.abs(ShapeUtils.area(pts)) };
+    return { shape, pts, touches, area: Math.abs(ShapeUtils.area(pts)) };
   });
-  const largest = sized.reduce((a, b) => (b.area > a.area ? b : a), sized[0]);
-  const isBody = (s: (typeof sized)[number]) => (sized.some((t) => t.touches) ? s.touches : s === largest);
+  // Some fonts draw one letter (or each piece of a kashida) as several
+  // overlapping outlines: every piece that touches the body is body too,
+  // so only pieces standing on their own (dots) move as one block.
+  const inBody = new Set(sized.filter((s) => s.touches));
+  if (!inBody.size && sized.length) inBody.add(sized.reduce((a, b) => (b.area > a.area ? b : a)));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const s of sized) {
+      if (inBody.has(s)) continue;
+      if ([...inBody].some((b) => touching(s.pts, b.pts, near))) {
+        inBody.add(s);
+        grew = true;
+      }
+    }
+  }
+  const isBody = (s: (typeof sized)[number]) => inBody.has(s);
   const main = sized.filter(isBody).map((s) => s.shape);
   const small = pieces ?? sized.filter((s) => !isBody(s)).map((s) => s.shape);
   if (!small.length || !main.length) return () => null;
@@ -221,7 +264,7 @@ export function deformGeometry(
 ) {
   const position = geometry.getAttribute('position');
   const normal = geometry.getAttribute('normal');
-  const blend = new Blender(letter, frames, junctionsOf(letter, junctions), softness);
+  const blend = new Blender(letter, frames, junctionsOf(letter, spanned(junctions, softness)), softness);
   const p = new Vector3();
   const n = new Vector3();
   for (let i = 0; i < position.count; i++) {
