@@ -1,5 +1,5 @@
 import type { Composition, GlyphShape } from '../core/types';
-import { area, clean, difference, intersect, offset, SCALE, toCommands, toPaths, union, type Path } from './clipper';
+import { area, clean, difference, tidy, intersect, offset, SCALE, toCommands, toPaths, union, type Path } from './clipper';
 import { letterSpans } from './joins';
 
 /**
@@ -68,12 +68,12 @@ export function applySoften(comp: Composition, softOf: (letter: number) => numbe
       const own = polysOf(g);
       const chain = g.isMark ? undefined : chainOf.get(g.letter);
       const others = chain === undefined ? [] : chains.get(chain)!.filter((o) => o !== g);
-      if (!others.length) return { ...g, commands: toCommands(rounded(own, r, em)) };
+      if (!others.length) return { ...g, commands: toCommands(tidy(rounded(own, r, em), em)) };
       const shape = roundedChain(chain!, r);
       // This letter's share: what lies on its side of the seam, inner
       // fillets included (they sit just outside its outline).
       const share = difference(offset(own, r, em), union(others.flatMap(polysOf)));
-      return { ...g, commands: toCommands(intersect(shape, union([...own, ...share]))) };
+      return { ...g, commands: toCommands(tidy(intersect(shape, union([...own, ...share])), em)) };
     }),
   };
 }

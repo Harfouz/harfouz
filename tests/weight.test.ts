@@ -121,6 +121,32 @@ describe('weight and soften', () => {
     });
   }
 
+  it('leaves no hairpin spikes for the 3D bevel to turn into needles', () => {
+    // Settings that used to give spiky seams along kashidas.
+    const font = fonts[0];
+    const p = { ...base, weight: -50, slant: 2.5, kashida: 2, kashidaPlacement: 'all', spacing: -14 } as ShapeParams;
+    for (const soften of [0, 50, 100]) {
+      const comp = buildComposition(font, 'كَلِمَة', { ...p, soften });
+      let hairpins = 0;
+      for (const g of comp.glyphs) {
+        const contours: { x: number; y: number }[][] = [];
+        for (const c of g.commands) {
+          if (c.type === 'M') contours.push([{ x: c.x, y: c.y }]);
+          else if (c.type === 'L') contours.at(-1)!.push({ x: c.x, y: c.y });
+        }
+        for (const ct of contours) {
+          const n = ct.length;
+          for (let i = 0; i < n; i++) {
+            const a = ct[(i - 1 + n) % n], b = ct[i], c = ct[(i + 1) % n];
+            const ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
+            if (Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy)) > 2.4) hairpins++;
+          }
+        }
+      }
+      expect(hairpins).toBeLessThan(30);
+    }
+  });
+
   it('is quick enough to drag the slider', () => {
     const font = fonts[0];
     buildComposition(font, 'السَّلَامُ عَلَيْكُمْ', { ...base, weight: -50 });

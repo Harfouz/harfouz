@@ -91,3 +91,13 @@ export const area = (path: Path) => Clipper.Area(path);
 
 /** Drop points closer than `distance` to their neighbours' line (keeps the shape, fewer points). */
 export const clean = (paths: Path[], distance: number): Path[] => Clipper.CleanPolygons(paths, distance);
+
+/**
+ * Final clean-up before outlines become 3D volumes: drops points that sit
+ * almost on top of a neighbour or on its line, hairpin spikes and specks.
+ * The bevel would turn each of those into a visible spike.
+ */
+export function tidy(paths: Path[], em: number): Path[] {
+  const speck = ((em / 300) * SCALE) ** 2;
+  return clean(paths, (em / 5000) * SCALE).filter((p) => p.length >= 3 && Math.abs(area(p)) > speck);
+}

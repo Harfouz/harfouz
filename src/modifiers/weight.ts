@@ -1,6 +1,6 @@
 import ClipperLib from 'clipper-lib';
 import type { Composition, GlyphShape } from '../core/types';
-import { intersect, offset, SCALE, toCommands, toPaths, union, unionPositive, type Path } from './clipper';
+import { intersect, offset, SCALE, tidy as cleanUp, toCommands, toPaths, union, unionPositive, type Path } from './clipper';
 import { letterSpans } from './joins';
 
 /**
@@ -73,7 +73,7 @@ export function applyWeight(comp: Composition, weightOf: (letter: number) => num
       // Around the joins, keep the untidied shape: tidying could cut a thin
       // bridge between two letters that only just meet.
       const seams = around.length ? intersect(shape, offset(union(around.flatMap(polysOf)), 2 * tidy + gap, em)) : [];
-      return { ...g, commands: toCommands(intersect(seams.length ? union([...tidied, ...seams]) : tidied, own)) };
+      return { ...g, commands: toCommands(cleanUp(intersect(seams.length ? union([...tidied, ...seams]) : tidied, own), em)) };
     }),
   };
 }
