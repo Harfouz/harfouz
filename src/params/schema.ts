@@ -96,7 +96,7 @@ export const SHAPE_PARAMS = [
   },
   {
     kind: 'range', key: 'soften', label: 'Soften', min: 0, max: 100, step: 1, default: 0, unit: '%',
-    hint: 'Rounds the corners of the letters: stroke ends, points and the angles where strokes meet.',
+    hint: 'Rounds the corners of the letters and inflates their volume like a cushion: the higher, the puffier.',
   },
   { kind: 'range', key: 'slant', label: 'Slant', min: -35, max: 35, step: 0.5, default: 0, unit: '°' },
   {

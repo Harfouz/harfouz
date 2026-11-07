@@ -35,10 +35,12 @@ import { HAIRY } from '../textures';
 import type { Params } from '../../params/schema';
 import type { Renderer, RenderInput } from '../Renderer';
 import { outlinesToShapes } from './contours';
-import { thinHalfWidth } from './strokeWidth';
-import { SOFT_EM } from '../../modifiers/soften';
+import { inflatedGeometry } from './inflate';
 import { bridgeConnectors, deformGeometry, findJunctions, fitJoins, frameMatrix, letterSpans, type LetterFrame } from './deform';
 import { furLayers, MaterialLibrary } from './materials';
+
+/** How far in from the outline 100 % Soften swells the volume, in ems. */
+const INFLATE_EM = 0.25;
 
 /** Where the camera looks from by default: a little to the left and above. */
 const DEFAULT_VIEW = new Vector3(-0.38, 0.22, 1).normalize();
@@ -147,7 +149,7 @@ export class ThreeRenderer implements Renderer {
   /** Parent of the word, turned by the Spin setting. */
   private turntable = new Group();
   /** Extruded volumes from the previous frame, reused while their shape is unchanged. */
-  private volumes = new Map<number, { geometry: ExtrudeGeometry; pivotY: number }>();
+  private volumes = new Map<number, { geometry: BufferGeometry; pivotY: number }>();
   private volumesKey = '';
   private junctionCache: ReturnType<typeof findJunctions> = [];
   private materials = new MaterialLibrary();
@@ -266,23 +268,22 @@ export class ThreeRenderer implements Renderer {
         // Thinner strokes get a proportionally smaller bevel, or it would
         // fold over strokes narrower than itself.
         const thinning = p.weight < 0 ? 1 + p.weight / 100 : 1;
-        // Soften rounds the edges of the volume too, as far as the thinner
-        // strokes allow: a fine stroke becomes a rounded rod, not a ribbon.
-        const soft = p.soften > 0 ? Math.min((p.soften / 100) * SOFT_EM * em, 0.85 * thinHalfWidth(shapes)) : 0;
-        const bevel = Math.min(Math.max(p.bevel * perMille * thinning, soft), depth / 2);
-        // Weight is already in the outlines (modifiers/weight.ts).
-        const geometry = new ExtrudeGeometry(shapes, {
-          depth,
-          curveSegments: 10,
-          bevelEnabled: bevel > 0,
-          bevelThickness: bevel,
-          bevelSize: bevel,
-          // Shrink the cap by the bevel so the silhouette keeps its drawn size.
-          bevelOffset: -bevel,
-          bevelSegments: bevel > 0 ? (soft > 0 ? 8 : 4) : 1,
-        });
-        // Centre the thickness on z = 0 so letters of different depths line up.
-        geometry.translate(0, 0, -depth / 2);
+        // Soften inflates the volume: the letter swells like a cushion,
+        // rounded from its outline, instead of being cut from a slab.
+        const inflate = (p.soften / 100) * INFLATE_EM * em;
+        const bevel = Math.min(p.bevel * perMille * thinning, depth / 2);
+        const extruded = () =>
+          new ExtrudeGeometry(shapes, {
+            depth,
+            curveSegments: 10,
+            bevelEnabled: bevel > 0,
+            bevelThickness: bevel,
+            bevelSize: bevel,
+            // Shrink the cap by the bevel so the silhouette keeps its drawn size.
+            bevelOffset: -bevel,
+            bevelSegments: bevel > 0 ? 4 : 1,
+          }).translate(0, 0, -depth / 2); // thickness centred on z = 0 so letters of different depths line up
+        const geometry = (inflate > 0 ? inflatedGeometry(shapes, inflate, depth / 2, em) : null) ?? extruded();
         geometry.computeBoundingBox();
         this.volumes.set(index, { geometry, pivotY: geometry.boundingBox!.getCenter(new Vector3()).y });
       }

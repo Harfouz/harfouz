@@ -101,9 +101,17 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
   let k = 0;
   contours.forEach((c, ci) => c.forEach((p, i) => ((qx[k] = p.x), (qy[k] = p.y), (owner[k] = ci), (place[k++] = i))));
 
-  /** Whether another contour (a counter) sits inside contour `ci`. */
+  /**
+   * Whether another contour (a counter) sits inside contour `ci`. A pinhole
+   * (the gap between three touching dots) doesn't count: it just closes up.
+   */
   const holeInside = (ci: number) =>
-    sources.some((other, oi) => oi !== ci && ClipperLib.Clipper.PointInPolygon(other[0], sources[ci]) !== 0);
+    sources.some(
+      (other, oi) =>
+        oi !== ci &&
+        Math.abs(ClipperLib.Clipper.Area(other)) > PINHOLE * Math.abs(ClipperLib.Clipper.Area(sources[ci])) &&
+        ClipperLib.Clipper.PointInPolygon(other[0], sources[ci]) !== 0,
+    );
 
   const maxRadius = 0.2 * em * SCALE;
   // Grid of outline points: a point at distance d can only make a circle of
@@ -210,7 +218,14 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
     // evenly instead, keeping its shape.
     const area = ClipperLib.Clipper.Area(sources[ci]);
     const widest = Math.max(...measured);
-    if (area > 0 && area < BLOB * Math.PI * widest * widest && !holeInside(ci)) {
+    // (Dots that touch, like the three of ش in some fonts, make one
+    // contour that is less round but just as compact.)
+    let perimeter = 0;
+    for (let i = 0; i < n; i++) perimeter += Math.hypot(at(c, i + 1).x - c[i].x, at(c, i + 1).y - c[i].y);
+    const compact = (4 * Math.PI * area) / (perimeter * perimeter);
+    const small = area < (DOTS_EM * em * SCALE) ** 2;
+    const blob = area < BLOB * Math.PI * widest * widest || (compact > COMPACT && small);
+    if (area > 0 && blob && !holeInside(ci)) {
       blobs.push(...offset([sources[ci]], -t * widest, em));
       return;
     }
@@ -293,6 +308,12 @@ function thinned(shape: Path[], t: number, em: number): { shape: Path[]; tidied:
 
 /** A shape whose area is under this many times its largest inner circle's is compact (a blob). */
 const BLOB = 3;
+/** …or a cluster of touching dots: this compact (4π·area / perimeter², 1 for a disc)… */
+const COMPACT = 0.35;
+/** …and no bigger than a square this size, in ems. */
+const DOTS_EM = 0.2;
+/** A counter smaller than this fraction of its shape is a pinhole. */
+const PINHOLE = 0.05;
 /** A point takes the stroke size measured up to this many radii along the outline. */
 const SPREAD = 3.5;
 /** …and never more than this many points away. */
